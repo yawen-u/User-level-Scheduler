@@ -17,7 +17,7 @@ int worker_create(worker_t * thread, pthread_attr_t * attr,
        // - create Thread Control Block (TCB)
 	tcb current_tcb;
        // - create and initialize the context of this worker thread
-	tcb.id = getpid(thread);
+	worker_t current;
 	tcb.context = setcontext();
        // - allocate space of stack for this thread to run
 	*stack=malloc(STACK_SIZE);
