@@ -45,8 +45,6 @@ typedef struct worker_mutex_t {
 /* define your data structures here: */
 // Feel free to add your own auxiliary data structures (linked list or queue etc...)
 
-// YOUR CODE HERE
-
 
 /* Function Declarations: */
 

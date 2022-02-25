@@ -11,8 +11,11 @@
 #define READY 0
 #define RUNNING 1
 #define BLOCKED 2
+#define MAX_WORKERS 20;
 
-// YOUR CODE HERE
+int numWorkers = 0;
+worker_t worker_list[MAX_WORKERS];
+
 worker_t* run_q;
 
 /* create a new thread */
@@ -20,30 +23,33 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 
 	// - create Thread Control Block (TCB)
 	tcb current_tcb;
+	thread = (worker_t*)malloc(sizeof(worker_t));
 
 	// - create and initialize the context of this worker thread
-	worker_t* worker = (worker_t*)malloc(sizeof(worker_t));
+	if (getcontext(&current_tcb) < 0){
+		perror("getcontext");
+		exit(1);
+	}
 
-	current_tcb.wid = id;
+	current_tcb.wid = numWorkers;
 	current_tcb.context.uc_link = NULL;
-	current_tcb.context.uc_stack.ss_sp = tack;
+	current_tcb.stack = malloc(STACK_SIZE);
+	current_tcb.context.uc_stack.ss_sp = current_tcb.stack;
 	current_tcb.context.uc_stack.ss_size = STACK_SIZE;
 	current_tcb.context.uc_stack.ss_flags = 0;
 	//current_tcb.priority;
 
-	makecontext(current_tcb, (void *)func, 0);
-
-	// - allocate space of stack for this thread to run
-	void *stack=malloc(STACK_SIZE);
-	if (stack == NULL){
+	if (current_tcb.stack == NULL){
 		perror("Failed to allocate stack");
 		exit(1);
 	}
+	makecontext(&current_tcb, (void *)function, 0);
 
 	// after everything is set, push this thread into run queue and 
 	// - make it ready for the execution.
 	push(run_q, tcb);
 	current_tcb.status = READY;
+	numWorkers++;
 
 	return 0;
 };
