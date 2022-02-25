@@ -13,6 +13,8 @@
 #define USE_WORKERS 1
 
 /* include lib header files that you need here: */
+#include <ucontext.h>
+
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
@@ -23,10 +25,10 @@ typedef uint worker_t;
 
 typedef struct TCB {
 	/* add important states in a thread control block */
-	worker_t id;// thread Id
+	worker_t wid;// thread Id
 	int status;// thread status
 	ucontext_t context; // thread context
-	int* stack;// thread stack
+	void* stack;// thread stack
 	int priority;// thread priority
 	// And more ...
 

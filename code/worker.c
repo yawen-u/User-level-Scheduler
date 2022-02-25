@@ -1,33 +1,51 @@
 // File:	worker.c
 
-// List all group member's name:
-// username of iLab:
-// iLab Server:
+// List all group member's name: Yawen Xu, Tomás Aquino
+// username of iLab: yx251, tma105
+// iLab Server: ilab 4
 
 #include "worker.h"
+
 // INITAILIZE ALL YOUR VARIABLES HERE
+#define STACK_SIZE SIGSTKSZ
+#define READY 0
+#define RUNNING 1
+#define BLOCKED 2
+
 // YOUR CODE HERE
 worker_t* run_q;
 
-
 /* create a new thread */
-int worker_create(worker_t * thread, pthread_attr_t * attr, 
-                      void *(*function)(void*), void * arg) {
+int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg) {
 
-       // - create Thread Control Block (TCB)
+	// - create Thread Control Block (TCB)
 	tcb current_tcb;
-       // - create and initialize the context of this worker thread
-	worker_t current = (worker_t*)malloc(sizeof(worker_t));
-	tcb.context = setcontext();
-       // - allocate space of stack for this thread to run
-	*stack=malloc(STACK_SIZE);
-       // after everything is set, push this thread into run queue and 
-       // - make it ready for the execution.
-	push(run_q, tcb);
 
-       
-	
-    return 0;
+	// - create and initialize the context of this worker thread
+	worker_t* worker = (worker_t*)malloc(sizeof(worker_t));
+
+	current_tcb.wid = id;
+	current_tcb.context.uc_link = NULL;
+	current_tcb.context.uc_stack.ss_sp = tack;
+	current_tcb.context.uc_stack.ss_size = STACK_SIZE;
+	current_tcb.context.uc_stack.ss_flags = 0;
+	//current_tcb.priority;
+
+	makecontext(current_tcb, (void *)func, 0);
+
+	// - allocate space of stack for this thread to run
+	void *stack=malloc(STACK_SIZE);
+	if (stack == NULL){
+		perror("Failed to allocate stack");
+		exit(1);
+	}
+
+	// after everything is set, push this thread into run queue and 
+	// - make it ready for the execution.
+	push(run_q, tcb);
+	current_tcb.status = READY;
+
+	return 0;
 };
 
 /* give CPU possession to other user-level worker threads voluntarily */
