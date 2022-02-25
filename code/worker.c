@@ -58,6 +58,7 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 int worker_yield() {
 	
 	// - change worker thread's state from Running to Ready
+	current_tcb.status = READY;
 	// - save context of this thread to its thread control block
 	// - switch from thread context to scheduler context
 
