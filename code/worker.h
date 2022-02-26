@@ -44,6 +44,12 @@ typedef struct worker_mutex_t {
 
 /* define your data structures here: */
 // Feel free to add your own auxiliary data structures (linked list or queue etc...)
+typedef struct Queue {
+	worker_t* worker;
+	int capacity;
+	int front;
+	int rear;
+}Queue;
 
 
 /* Function Declarations: */

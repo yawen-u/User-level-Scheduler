@@ -15,15 +15,20 @@
 
 int numWorkers = 0;
 worker_t worker_list[MAX_WORKERS];
+boolean first_invoke = true;
+Queue run_q;
+ucontext_t scheduler_context;
 
-worker_t* run_q;
+tcb *current_tcb;
 
 /* create a new thread */
 int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg) {
 
         // - create Thread Control Block (TCB)
-        tcb current_tcb;
-        thread = (worker_t*)malloc(sizeof(worker_t));
+        if( (current_tcb = malloc(sizeof(tcb)) ) == NULL ) {
+                printf("\nCould Not allocate Memory to tcb"); 
+                exit(0);
+        }
 
         // - create and initialize the context of this worker thread
         if (getcontext(&current_tcb) < 0){
@@ -31,7 +36,7 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
                 exit(1);
         }
 
-        current_tcb.wid = numWorkers;
+        current_tcb.wid = ++numWorkers;
         current_tcb.context.uc_link = NULL;
         current_tcb.stack = malloc(STACK_SIZE);
         current_tcb.context.uc_stack.ss_sp = current_tcb.stack;
@@ -44,23 +49,31 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
                 exit(1);
         }
         makecontext(&current_tcb, (void *)function, 0);
+        setcontext(&current_tcb);
 
         // after everything is set, push this thread into run queue and 
         // - make it ready for the execution.
-        push(run_q, tcb);
+        enqueue(run_q, tcb);
         current_tcb.status = READY;
-        numWorkers++;
 
-        return 0;
+        if (first_invoke) {
+                first_invoke = false;
+                current_tcb.context = scheduler_context;
+        }
+
+        return current_tcb.wid;
 };
 
 /* give CPU possession to other user-level worker threads voluntarily */
 int worker_yield() {
         
         // - change worker thread's state from Running to Ready
+        tcb current = dequeue( &run_q );
         current_tcb.status = READY;
-        current_tcb.status = READY;
+       
         // - save context of this thread to its thread control block
+
+
         // - switch from thread context to scheduler context
 
         // YOUR CODE HERE
