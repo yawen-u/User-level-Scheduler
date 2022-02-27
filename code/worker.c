@@ -14,7 +14,6 @@
 #define MAX_WORKERS 20;
 
 int numWorkers = 0;
-worker_t worker_list[MAX_WORKERS];
 boolean first_invoke = true;
 Queue run_q;
 ucontext_t scheduler_context;
@@ -68,24 +67,28 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 int worker_yield() {
         
         // - change worker thread's state from Running to Ready
-        tcb current = dequeue( &run_q );
-        current_tcb.status = READY;
+        if (current_tcb.status == RUNNING) {
+                current_tcb.status = READY;
+        } else {
+                printf("YIELDING ERROR: current thread is not running\n");
+        }
+
+        // - put the current worker thread back to a runqueue and choose the next worker thread to run
+        enqueue(run_q, current_tcb);
        
-        // - save context of this thread to its thread control block
-
-
-        // - switch from thread context to scheduler context
-
-        // YOUR CODE HERE
+        // - save context of this thread to its thread control block; switch from thread context to scheduler context
+        swapcontext(&current_tcb.context, &scheduler_context); 
         
         return 0;
 };
 
 /* terminate a thread */
 void worker_exit(void *value_ptr) {
-        // - de-allocate any dynamic memory created when starting this thread
 
-        // YOUR CODE HERE
+        // - de-allocate any dynamic memory created when starting this thread
+        free(current_tcb);
+        free(current_tcb.stack);
+
 };
 
 
@@ -93,18 +96,17 @@ void worker_exit(void *value_ptr) {
 int worker_join(worker_t thread, void **value_ptr) {
         
         // - wait for a specific thread to terminate
+
         // - de-allocate any dynamic memory created by the joining thread
   
-        // YOUR CODE HERE
         return 0;
 };
 
 /* initialize the mutex lock */
-int worker_mutex_init(worker_mutex_t *mutex, 
-                          const pthread_mutexattr_t *mutexattr) {
+int worker_mutex_init(worker_mutex_t *mutex, const pthread_mutexattr_t *mutexattr) {
+
         //- initialize data structures for this mutex
 
-        // YOUR CODE HERE
         return 0;
 };
 
