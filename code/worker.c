@@ -13,11 +13,10 @@
 #define BLOCKED 2
 #define MAX_WORKERS 20;
 
-int numWorkers = 0;
+int numWorkers = -1;
 boolean first_invoke = true;
 Queue run_q;
-ucontext_t scheduler_context;
-
+tcb *scheduler;
 tcb *current_tcb;
 
 /* create a new thread */
@@ -25,8 +24,8 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 
         // - create Thread Control Block (TCB)
         if( (current_tcb = malloc(sizeof(tcb)) ) == NULL ) {
-                printf("\nCould Not allocate Memory to tcb"); 
-                exit(0);
+                printf("Could Not allocate Memory to tcb\n"); 
+                exit(1);
         }
 
         // - create and initialize the context of this worker thread
@@ -50,15 +49,18 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
         makecontext(&current_tcb, (void *)function, 0);
         setcontext(&current_tcb);
 
-        // after everything is set, push this thread into run queue and 
-        // - make it ready for the execution.
-        enqueue(run_q, tcb);
-        current_tcb.status = READY;
-
+        // Scheduler Context
         if (first_invoke) {
                 first_invoke = false;
-                current_tcb.context = scheduler_context;
+                scheduler = current_tcb;
+                free(current_tcb);
+                free(current_tcb.stack);
+                return scheduler.wid;
         }
+
+        // after everything is set, push this thread into run queue and make it ready for the execution
+        enqueue(run_q, current_tcb);
+        current_tcb.status = READY;
 
         return current_tcb.wid;
 };
@@ -86,8 +88,8 @@ int worker_yield() {
 void worker_exit(void *value_ptr) {
 
         // - de-allocate any dynamic memory created when starting this thread
-        free(current_tcb);
-        free(current_tcb.stack);
+        free(value_ptr.stack);
+        free(value_ptr);
 
 };
 
@@ -96,7 +98,9 @@ void worker_exit(void *value_ptr) {
 int worker_join(worker_t thread, void **value_ptr) {
         
         // - wait for a specific thread to terminate
-
+        if (value_ptr != NULL) {
+                //....
+        }
         // - de-allocate any dynamic memory created by the joining thread
   
         return 0;
@@ -145,15 +149,15 @@ static void schedule() {
         // - every time a timer interrupt occurs, your worker thread library 
         // should be contexted switched from a thread context to this 
         // schedule() function
+       tcb* worker_selected = dequeue(run_q);
+       current_tcb = worker_selected;
 
         // - invoke scheduling algorithms according to the policy (RR or MLFQ)
-
         // if (sched == RR)
-        //              sched_rr();
+        //         sched_rr();
         // else if (sched == MLFQ)
-        //              sched_mlfq();
+        //         sched_mlfq();
 
-        // YOUR CODE HERE
 
 // - schedule policy
 #ifndef MLFQ
