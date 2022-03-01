@@ -36,9 +36,6 @@ int main(int argc, char *argv[]) {
 
 }
 
-/*
- * DoStuff
- */
 void DoStuff(void) {
 
   printf("Timer went off.\n");

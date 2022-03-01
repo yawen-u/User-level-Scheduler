@@ -15,7 +15,7 @@
 
 int numWorkers = -1;
 boolean first_invoke = true;
-Queue run_q;
+Queue* run_q[MAX_WORKERS];
 tcb *scheduler;
 tcb *current_tcb;
 
@@ -149,8 +149,9 @@ static void schedule() {
         // - every time a timer interrupt occurs, your worker thread library 
         // should be contexted switched from a thread context to this 
         // schedule() function
-       tcb* worker_selected = dequeue(run_q);
-       current_tcb = worker_selected;
+       dequeue(run_q);
+       current_tcb = run_q->front;
+       swapcontext(&scheduler_context, &current_tcb);
 
         // - invoke scheduling algorithms according to the policy (RR or MLFQ)
         // if (sched == RR)
@@ -184,7 +185,72 @@ static void sched_mlfq() {
         // YOUR CODE HERE
 }
 
-// Feel free to add any other functions you need
+// Queue Functions
+Queue * createQueue(int maxElements) {
 
-// YOUR CODE HERE
+        run_q = (Queue *)malloc(sizeof(Queue) * MAX_WORKERS);
+        run_q->capacity = MAX_WORKERS;
+        run_q->front = NULL;
+        run_q->rear = NULL;
+       
+        return Q;
+}
 
+void enqueue(Queue *Q, tcb* worker) {
+        /* If the Queue is full, we cannot push an element into it as there is no space for it.*/
+        if(numWorkers == Q->capacity) {
+                printf("Queue is Full\n");
+        } else {
+                numWorkers++;
+                Q->rear->next = worker;
+                Q->rear = worker;
+                worker->next = NULL;    
+        }
+        return;
+}
+
+void dequeue(Queue *Q) {
+        
+        if(numWorkers == 0) {
+                printf("Queue is Empty\n");
+                return;
+        } else {
+                numWorkers--;
+                worker_exit(Q->front);
+                Q->front = Q->front->next;
+        }
+        return;
+}
+
+/*  Timer ---------------------------------------------------------------------------------------  */
+
+// void DoStuff(void) {
+
+//   printf("Timer went off.\n");
+  
+
+// }
+
+void Timer() {
+
+        // struct itimerval it_val;      /* for setting itimer */
+
+        // /* Upon SIGALRM, call DoStuff().
+        //  * Set interval timer.  We want frequency in ms, 
+        //  * but the setitimer call needs seconds and useconds. */
+        // if (signal(SIGALRM, (void (*)(int)) DoStuff) == SIG_ERR) {
+        //   printf("Unable to catch SIGALRM");
+        //   exit(1);
+        // }
+        // it_val.it_value.tv_sec =     INTERVAL/1000;
+        // it_val.it_value.tv_usec =    (INTERVAL*1000) % 1000000;       
+        // it_val.it_interval = it_val.it_value;
+        // if (setitimer(ITIMER_REAL, &it_val, NULL) == -1) {
+        //   printf("error calling setitimer()");
+        //   exit(1);
+        // }
+
+        // while (1) 
+        //   pause();
+
+}
