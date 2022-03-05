@@ -3,6 +3,7 @@
 // List all group member's name: Yawen Xu, Tomás Aquino
 // username of iLab: yx251, tma105
 // iLab Server: ilab 4
+//------------------------------------------------------------------------------------------------------
 
 #ifndef WORKER_T_H
 #define WORKER_T_H
@@ -12,14 +13,19 @@
 /* To use Linux pthread Library in Benchmark, you have to comment the USE_WORKERS macro */
 #define USE_WORKERS 1
 
-/* include lib header files that you need here: */
-#include <ucontext.h>
+//------------------------------------------------------------------------------------------------------
 
+/* include lib header files that you need here: */
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <ucontext.h>
+#include <stdbool.h>
+#include <signal.h>
+
+//------------------------------------------------------------------------------------------------------
 
 typedef uint worker_t;
 
@@ -41,15 +47,25 @@ typedef struct worker_mutex_t {
 
 /* define your data structures here: */
 // Feel free to add your own auxiliary data structures (linked list or queue etc...)
-typedef struct Queue {
-	tcb* worker;
-	int capacity;
-	worker_t* front;
-	worker_t* rear;
-}Queue;
+typedef struct wthread {
+	tcb* tcb; // Worker Thread TCB
+	struct wthread* next;
+} wthread;
 
+typedef struct Queue {
+	int capacity;
+	wthread* front;
+	wthread* rear;
+} Queue;
+
+//------------------------------------------------------------------------------------------------------
 
 /* Function Declarations: */
+
+void initialize_lib();
+
+
+//------------------------------------------------------------------------------------------------------
 
 /* create a new thread */
 int worker_create(worker_t * thread, pthread_attr_t * attr, void
@@ -76,6 +92,8 @@ int worker_mutex_unlock(worker_mutex_t *mutex);
 
 /* destroy the mutex */
 int worker_mutex_destroy(worker_mutex_t *mutex);
+
+//------------------------------------------------------------------------------------------------------
 
 #ifdef USE_WORKERS
 #define pthread_t worker_t
