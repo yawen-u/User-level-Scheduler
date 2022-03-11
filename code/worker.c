@@ -15,12 +15,12 @@
 #define MAX_WORKERS 20
 
 
-int numWorkers = -1;
+int numWorkers = 0;
 bool first_invoke = true;
 
 
-Queue* run_q[MAX_WORKERS];
-int exitedThreads[50];  // threads that have already exited
+Queue* run_q;
+int exitedThreads[MAX_WORKERS];  // threads that have already exited
 int exitId = 0;
 
 ucontext_t main_context;
@@ -32,6 +32,12 @@ wthread* current_worker;
 
 /* create a new thread */
 int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg) {
+
+        if (first_invoke) {
+                init_scheduler();
+                schedule();
+                return schedule->tcb->wid;
+        }
 
         // Check if the number of workers is full
         if (numWorkers == MAX_WORKERS){
@@ -72,18 +78,10 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
         makecontext( &(current_worker->tcb->context), (void *)function, 0);
         setcontext( &(current_worker->tcb->context) );
 
-/*        // Scheduler Context
-        if (first_invoke) {
-                first_invoke = false;
-                scheduler.tcb = current_tcb;
-                free(current_tcb);
-                free(current_tcb.stack);
-                return scheduler.tcb->wid;
-        }
-
         // after everything is set, push this thread into run queue and make it ready for the execution
-        enqueue(run_q, current_worker);*/
+        enqueue(current_worker);
         current_worker->tcb->status = READY;
+        printQ();
 
         return current_worker->tcb->wid;
 };
@@ -94,17 +92,17 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 int worker_yield() {
         
         // - change worker thread's state from Running to Ready
-        if (current_tcb->status == RUNNING) {
-                current_tcb->status = READY;
+        if (current_worker->tcb->status == RUNNING) {
+                current_worker->tcb->status = READY;
         } else {
                 printf("YIELDING ERROR: current thread is not running\n");
         }
 
         // - put the current worker thread back to a runqueue and choose the next worker thread to run
-        // enqueue(run_q, current_worker);
+        enqueue(current_worker);
        
         // - save context of this thread to its thread control block; switch from thread context to scheduler context
-        swapcontext( &(current_tcb->context), &(scheduler->tcb->context) ); 
+        swapcontext( &(current_worker->tcb->context), &(scheduler->tcb->context) ); 
         
         return 0;
 };
@@ -128,9 +126,11 @@ int worker_join(worker_t thread, void **value_ptr) {
         // - wait for a specific thread to terminate
         // - check if the thread already existed
         bool join = true;
-        for (int i = 0; i < exitedThreads; i++) {
+        for (int i = 0; i < MAX_WORKERS; i++) {
                 if (thread == exitedThreads[i]) {
                         join = false;
+                        printf("thead already existed.\n");
+                        return 1;
                 }
         }
 
@@ -139,7 +139,7 @@ int worker_join(worker_t thread, void **value_ptr) {
                 current_worker->tcb->status = BLOCKED;
 
                 // find the specific thread in queue
-                wthread temp_worker = current_worker;
+                wthread* temp_worker = run_q->front;
                 while (temp_worker->next != NULL) {
 
                         if (current_worker->tcb->wid == thread) { // thread found
@@ -156,7 +156,7 @@ int worker_join(worker_t thread, void **value_ptr) {
                                 setcontext(&scheduler->tcb->context);
                                 return 0;
                         } else {
-                                temp_worker = temp_worker.next;
+                                temp_worker = temp_worker->next;
                         }
 
                 }
@@ -213,16 +213,57 @@ int worker_mutex_destroy(worker_mutex_t *mutex) {
 
 //------------------------------------------------------------------------------------------------------
 
+void init_scheduler() {
+        first_invoke = false;
+        createQueue();
+        if( (scheduler = malloc(sizeof(wthread)) ) == NULL ) {
+                printf("Could Not allocate Memory to wthread\n"); 
+                exit(1);
+        }
+        if( (scheduler->tcb = malloc(sizeof(tcb)) ) == NULL ) {
+                printf("Could Not allocate Memory to tcb\n"); 
+                exit(1);
+        }
+
+        // - create and initialize the context of this worker thread
+        if (getcontext( &(scheduler->tcb->context) ) < 0){
+                perror("getcontext");
+                exit(1);
+        }
+        scheduler->tcb->wid = ++numWorkers;
+        scheduler->tcb->context.uc_link = NULL;
+        scheduler->tcb->stack = malloc(STACK_SIZE);
+        scheduler->tcb->context.uc_stack.ss_sp = scheduler->tcb->stack;
+        scheduler->tcb->context.uc_stack.ss_size = STACK_SIZE;
+        scheduler->tcb->context.uc_stack.ss_flags = 0;
+      
+        if (scheduler->tcb->stack == NULL){
+                perror("Failed to allocate stack");
+                exit(1);
+        }
+        makecontext( &(scheduler->tcb->context), NULL, 0);
+        setcontext( &(scheduler->tcb->context) );
+        scheduler->tcb->status = RUNNING;
+        return;
+}
+
 /* scheduler */
 static void schedule() {
+
         // - every time a timer interrupt occurs, your worker thread library 
         // should be contexted switched from a thread context to this 
         // schedule() function
 
        // FIFO
-       // dequeue(run_q);
-       // current_tcb = run_q->front->tcb;
-       // swapcontext(&scheduler_context, &current_tcb);
+       current_worker = dequeue(run_q);
+       current_worker->tcb->status = RUNNING;
+       printQ();
+       swapcontext(&(scheduler->tcb->context), &(current_worker->tcb->context));
+
+       free(scheduler->tcb->stack);
+       free(scheduler->tcb);
+       free(scheduler);
+
 
         // - invoke scheduling algorithms according to the policy (RR or MLFQ)
         // if (sched == RR)
@@ -263,42 +304,55 @@ static void sched_mlfq() {
 //------------------------------------------------------------------------------------------------------
 
 // Queue Functions
-Queue * createQueue(int maxElements) {
+void createQueue() {
 
-/*        
         run_q = (Queue *)malloc(sizeof(Queue) * MAX_WORKERS);
         run_q->capacity = MAX_WORKERS;
         run_q->front = NULL;
         run_q->rear = NULL;
        
-        return Q;
-*/
+        return;
+
 }
 
-void enqueue(Queue *Q, tcb* worker) {
-        /* If the Queue is full, we cannot push an element into it as there is no space for it.*/
-/*        if(numWorkers == Q->capacity) {
-                printf("Queue is Full\n");
+void enqueue(wthread* worker) {
+
+        if(numWorkers == run_q->capacity) {
+                perror("run_queue is Full\n");
+                exit(1);
         } else {
-                numWorkers++;
-                Q->rear->next = worker;
-                Q->rear = worker;
+                run_q->rear->next = worker;
+                run_q->rear = worker;
                 worker->next = NULL;    
         }
-        return;*/
+        return;
 }
 
-void dequeue(Queue *Q) {
+wthread* dequeue(Queue *Q) {
         
-/*        if(numWorkers == 0) {
-                printf("Queue is Empty\n");
-                return;
+        wthread* curr = NULL;
+
+        if(numWorkers == 0) {
+                perror("Queue is Empty\n");
+                exit(1);
         } else {
+                curr = Q->front;
                 numWorkers--;
-                worker_exit(Q->front);
                 Q->front = Q->front->next;
         }
-        return;*/
+        return curr;
+}
+
+void printQ(){
+        if (run_q->front == run_q->rear && run_q->front == NULL) {
+                printf("Empty Queue;\n");
+        }
+
+        wthread* temp = run_q->front;
+        while (temp->next != NULL) {
+                printf("worker id: %d; Status: %d", temp->tcb->wid, temp->tcb->status);
+                temp = temp->next;
+        }
 }
 
 //------------------------------------------------------------------------------------------------------

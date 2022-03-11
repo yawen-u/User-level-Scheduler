@@ -24,26 +24,26 @@ int main(int argc, char **argv) {
     
 
     // Create worker threads for testing
-    worker_t wid;
-    worker_t result;
+    // worker_t wid;
+    // worker_t result;
 
-    result = worker_create(&wid, NULL, &squares, NULL);
-
-    printf("%u\n", result);
+    // result = worker_create(&wid, NULL, &squares, NULL);
 
 
-/*    int thread_num = 10;
+    int thread_num = 10;
     wthread* thread = (wthread*) malloc(thread_num*sizeof(wthread));
 
     for (int i = 0; i < thread_num; ++i){
-        worker_create(&thread[i], NULL, &fibonacchi, NULL);
-    }*/
+        int wid = worker_create(&(thread[i].tcb->wid), NULL, &fibonacchi, NULL);
+        printf("wid[%d]: %d\n", i, thread[i]);
+    }
 
     // Join the threads when done
-/*    for (int i = 0; i < thread_num; ++i){
-        worker_join(thread[i], NULL);
+    for (int i = 0; i < thread_num; ++i){
+        int ret = worker_join(thread[i].tcb->wid, NULL);
+        printf("join_status[%d]: %d\n", i, ret);
     }
-*/
+
     
 
 	return 0;
@@ -69,15 +69,16 @@ void fibonacchi()
     int i;
     int fib[2] = { 0, 1 };
     
-    /*sleep( 2 ); */
+    sleep( 2 ); 
     printf( "fibonacchi(0) = 0\nfibonnachi(1) = 1\n" );
     for( i = 2; i < 15; ++ i )
     {
         int nextFib = fib[0] + fib[1];
         printf( "fibonacchi(%d) = %d\n", i, nextFib );
+        //sleep( 2 );
         fib[0] = fib[1];
         fib[1] = nextFib;
-        //fiberYield();
+        //worker_yield();
     }
 }
 

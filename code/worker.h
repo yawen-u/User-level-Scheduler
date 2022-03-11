@@ -93,6 +93,15 @@ int worker_mutex_unlock(worker_mutex_t *mutex);
 /* destroy the mutex */
 int worker_mutex_destroy(worker_mutex_t *mutex);
 
+/* Queue functions */
+void createQueue();
+void enqueue(wthread* worker);
+wthread* dequeue(Queue *Q);
+void printQ();
+
+void init_scheduler();
+static void schedule();
+
 //------------------------------------------------------------------------------------------------------
 
 #ifdef USE_WORKERS
