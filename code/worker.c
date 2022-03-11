@@ -20,7 +20,8 @@ bool first_invoke = true;
 
 
 Queue* run_q[MAX_WORKERS];
-
+int exitedThreads[50];  // threads that have already exited
+int exitId = 0;
 
 ucontext_t main_context;
 
@@ -46,6 +47,7 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
                 exit(1);
         }
         current_worker->tcb = current_tcb;
+        //current_worker->function = function;
 
         // - create Thread Control Block (TCB)
         if( (current_tcb = malloc(sizeof(tcb)) ) == NULL ) {
@@ -84,7 +86,7 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
         }
 
         // after everything is set, push this thread into run queue and make it ready for the execution
-        enqueue(run_q, current_tcb);*/
+        enqueue(run_q, current_worker);*/
         current_tcb->status = READY;
 
         return current_tcb->wid;
@@ -103,7 +105,7 @@ int worker_yield() {
         }
 
         // - put the current worker thread back to a runqueue and choose the next worker thread to run
-        // enqueue(run_q, current_tcb);
+        // enqueue(run_q, current_worker);
        
         // - save context of this thread to its thread control block; switch from thread context to scheduler context
         swapcontext( &(current_tcb->context), &(scheduler->tcb->context) ); 
@@ -117,8 +119,7 @@ int worker_yield() {
 void worker_exit(void *value_ptr) {
 
         // - de-allocate any dynamic memory created when starting this thread
-        // free(value_ptr->stack);
-        // free(value_ptr);
+        // free(current_worker->tcb->stack);
 
 };
 
@@ -129,10 +130,42 @@ void worker_exit(void *value_ptr) {
 int worker_join(worker_t thread, void **value_ptr) {
         
         // - wait for a specific thread to terminate
-        if (value_ptr != NULL) {
-                //....
+        // - check if the thread already existed
+        bool join = true;
+        for (int i = 0; i < exitedThreads; i++) {
+                if (thread == exitedThreads[i]) {
+                        join = false;
+                }
         }
-        // - de-allocate any dynamic memory created by the joining thread
+
+        if (join) {
+                // block the current thread
+                current_worker->tcb->status = BLOCKED;
+
+                // find the specific thread in queue
+                wthread temp_worker = current_worker;
+                while (temp_worker->next != NULL) {
+
+                        if (current_worker->tcb->wid == thread) { // thread found
+                                // saves the current context then swaps it out for the thread context.
+                                swapcontext(&(current_worker->tcb->context), &(temp_worker->tcb->context));
+
+                                // wait for termination
+                                while (1) {
+                                        if (temp_worker->tcb->status == BLOCKED) {
+                                                free(temp_worker->tcb->stack);
+                                                break;
+                                        } 
+                                }
+                                setcontext(&scheduler->tcb->context);
+                                return 0;
+                        } else {
+                                temp_worker = temp_worker.next;
+                        }
+
+                }
+
+        }
   
         return 0;
 };
@@ -189,8 +222,10 @@ static void schedule() {
         // - every time a timer interrupt occurs, your worker thread library 
         // should be contexted switched from a thread context to this 
         // schedule() function
+
+       // FIFO
        // dequeue(run_q);
-       // current_tcb = run_q->front;
+       // current_tcb = run_q->front->tcb;
        // swapcontext(&scheduler_context, &current_tcb);
 
         // - invoke scheduling algorithms according to the policy (RR or MLFQ)
@@ -234,12 +269,14 @@ static void sched_mlfq() {
 // Queue Functions
 Queue * createQueue(int maxElements) {
 
-/*        run_q = (Queue *)malloc(sizeof(Queue) * MAX_WORKERS);
+/*        
+        run_q = (Queue *)malloc(sizeof(Queue) * MAX_WORKERS);
         run_q->capacity = MAX_WORKERS;
         run_q->front = NULL;
         run_q->rear = NULL;
        
-        return Q;*/
+        return Q;
+*/
 }
 
 void enqueue(Queue *Q, tcb* worker) {
