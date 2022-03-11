@@ -26,10 +26,7 @@ int exitId = 0;
 ucontext_t main_context;
 
 wthread* scheduler;
-tcb* scheduler_tcb;
-
 wthread* current_worker;
-tcb* current_tcb;
 
 //------------------------------------------------------------------------------------------------------
 
@@ -46,35 +43,34 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
                 printf("Could Not allocate Memory to wthread\n"); 
                 exit(1);
         }
-        current_worker->tcb = current_tcb;
         //current_worker->function = function;
 
         // - create Thread Control Block (TCB)
-        if( (current_tcb = malloc(sizeof(tcb)) ) == NULL ) {
+        if( (current_worker->tcb = malloc(sizeof(tcb)) ) == NULL ) {
                 printf("Could Not allocate Memory to tcb\n"); 
                 exit(1);
         }
 
         // - create and initialize the context of this worker thread
-        if (getcontext( &(current_tcb->context) ) < 0){
+        if (getcontext( &(current_worker->tcb->context) ) < 0){
                 perror("getcontext");
                 exit(1);
         }
 
-        current_tcb->wid = ++numWorkers;
-        current_tcb->context.uc_link = NULL;
-        current_tcb->stack = malloc(STACK_SIZE);
-        current_tcb->context.uc_stack.ss_sp = current_tcb->stack;
-        current_tcb->context.uc_stack.ss_size = STACK_SIZE;
-        current_tcb->context.uc_stack.ss_flags = 0;
-        //current_tcb.priority;
+        current_worker->tcb->wid = ++numWorkers;
+        current_worker->tcb->context.uc_link = NULL;
+        current_worker->tcb->stack = malloc(STACK_SIZE);
+        current_worker->tcb->context.uc_stack.ss_sp = current_worker->tcb->stack;
+        current_worker->tcb->context.uc_stack.ss_size = STACK_SIZE;
+        current_worker->tcb->context.uc_stack.ss_flags = 0;
+        //current_worker->tcb.priority;
 
-        if (current_tcb->stack == NULL){
+        if (current_worker->tcb->stack == NULL){
                 perror("Failed to allocate stack");
                 exit(1);
         }
-        makecontext( &(current_tcb->context), (void *)function, 0);
-        setcontext( &(current_tcb->context) );
+        makecontext( &(current_worker->tcb->context), (void *)function, 0);
+        setcontext( &(current_worker->tcb->context) );
 
 /*        // Scheduler Context
         if (first_invoke) {
@@ -87,9 +83,9 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 
         // after everything is set, push this thread into run queue and make it ready for the execution
         enqueue(run_q, current_worker);*/
-        current_tcb->status = READY;
+        current_worker->tcb->status = READY;
 
-        return current_tcb->wid;
+        return current_worker->tcb->wid;
 };
 
 //------------------------------------------------------------------------------------------------------
