@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
     // result = worker_create(&wid, NULL, &squares, NULL);
 
 
-    int thread_num = 10;
+    int thread_num = 100;
     wthread* thread = (wthread*) malloc(thread_num*sizeof(wthread));
 
     for (int i = 0; i < thread_num; ++i){
@@ -39,11 +39,11 @@ int main(int argc, char **argv) {
     }
 
     // Join the threads when done
-    for (int i = 0; i < thread_num; ++i){
+/*    for (int i = 0; i < thread_num; ++i){
         int ret = worker_join(thread[i].tcb->wid, NULL);
         printf("join_status[%d]: %d\n", i, ret);
     }
-
+*/
     
 
 	return 0;

@@ -19,6 +19,7 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
+#include <sys/time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <ucontext.h>
@@ -62,7 +63,11 @@ typedef struct Queue {
 
 /* Function Declarations: */
 
-void initialize_lib();
+// Library Initialization
+
+void initialize();
+void init_scheduler();
+void init_timer();
 
 
 //------------------------------------------------------------------------------------------------------
@@ -99,8 +104,10 @@ void enqueue(wthread* worker);
 wthread* dequeue(Queue *Q);
 void printQ();
 
-void init_scheduler();
+
 static void schedule();
+
+void DoStuff(void);
 
 //------------------------------------------------------------------------------------------------------
 

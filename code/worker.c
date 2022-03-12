@@ -13,6 +13,7 @@
 #define RUNNING 1
 #define BLOCKED 2
 #define MAX_WORKERS 20
+#define INTERVAL 500            /* number of milliseconds to go off */
 
 
 int numWorkers = 0;
@@ -28,17 +29,90 @@ ucontext_t main_context;
 wthread* scheduler;
 wthread* current_worker;
 
-//------------------------------------------------------------------------------------------------------
+struct itimerval it_val;        /* for setting itimer */
 
+//------------------------------------------------------------------------------------------------------
+// Library Initialization
+
+void initialize(){
+
+        first_invoke = false; // We only initialize the first time
+
+        createQueue();
+
+        init_scheduler();
+
+        init_timer();
+
+}
+
+void init_scheduler() {
+        
+        
+        if( (scheduler = malloc(sizeof(wthread)) ) == NULL ) {
+                printf("Could Not allocate Memory to wthread\n"); 
+                exit(1);
+        }
+        if( (scheduler->tcb = malloc(sizeof(tcb)) ) == NULL ) {
+                printf("Could Not allocate Memory to tcb\n"); 
+                exit(1);
+        }
+
+        // - create and initialize the context of this worker thread
+        if (getcontext( &(scheduler->tcb->context) ) < 0){
+                perror("getcontext");
+                exit(1);
+        }
+        scheduler->tcb->wid = ++numWorkers;
+        scheduler->tcb->context.uc_link = NULL;
+        scheduler->tcb->stack = malloc(STACK_SIZE);
+        scheduler->tcb->context.uc_stack.ss_sp = scheduler->tcb->stack;
+        scheduler->tcb->context.uc_stack.ss_size = STACK_SIZE;
+        scheduler->tcb->context.uc_stack.ss_flags = 0;
+      
+        if (scheduler->tcb->stack == NULL){
+                perror("Failed to allocate stack");
+                exit(1);
+        }
+        makecontext( &(scheduler->tcb->context), NULL, 0);
+        setcontext( &(scheduler->tcb->context) );
+        scheduler->tcb->status = RUNNING;
+        return;
+}
+
+void init_timer() {
+    
+    // Initialize timer
+    if (signal(SIGALRM, (void (*)(int)) DoStuff) == SIG_ERR) {
+
+        printf("Unable to catch SIGALRM");
+        exit(1);
+    }
+
+    it_val.it_value.tv_sec =     INTERVAL/1000;
+    it_val.it_value.tv_usec =    (INTERVAL*1000) % 1000000;       
+    it_val.it_interval = it_val.it_value;
+
+    if (setitimer(ITIMER_REAL, &it_val, NULL) == -1) {
+
+        printf("error calling setitimer()");
+        exit(1);
+    }
+
+}
+
+
+//------------------------------------------------------------------------------------------------------
 /* create a new thread */
 int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg) {
 
         if (first_invoke) {
-                init_scheduler();
-                schedule();
-                return schedule->tcb->wid;
+                initialize_lib();
+                //init_scheduler();
+                //schedule();
+                //return scheduler->tcb->wid;
         }
-
+/*
         // Check if the number of workers is full
         if (numWorkers == MAX_WORKERS){
                 return -1;
@@ -83,7 +157,8 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
         current_worker->tcb->status = READY;
         printQ();
 
-        return current_worker->tcb->wid;
+        return current_worker->tcb->wid;*/
+        return 0;
 };
 
 //------------------------------------------------------------------------------------------------------
@@ -213,40 +288,6 @@ int worker_mutex_destroy(worker_mutex_t *mutex) {
 
 //------------------------------------------------------------------------------------------------------
 
-void init_scheduler() {
-        first_invoke = false;
-        createQueue();
-        if( (scheduler = malloc(sizeof(wthread)) ) == NULL ) {
-                printf("Could Not allocate Memory to wthread\n"); 
-                exit(1);
-        }
-        if( (scheduler->tcb = malloc(sizeof(tcb)) ) == NULL ) {
-                printf("Could Not allocate Memory to tcb\n"); 
-                exit(1);
-        }
-
-        // - create and initialize the context of this worker thread
-        if (getcontext( &(scheduler->tcb->context) ) < 0){
-                perror("getcontext");
-                exit(1);
-        }
-        scheduler->tcb->wid = ++numWorkers;
-        scheduler->tcb->context.uc_link = NULL;
-        scheduler->tcb->stack = malloc(STACK_SIZE);
-        scheduler->tcb->context.uc_stack.ss_sp = scheduler->tcb->stack;
-        scheduler->tcb->context.uc_stack.ss_size = STACK_SIZE;
-        scheduler->tcb->context.uc_stack.ss_flags = 0;
-      
-        if (scheduler->tcb->stack == NULL){
-                perror("Failed to allocate stack");
-                exit(1);
-        }
-        makecontext( &(scheduler->tcb->context), NULL, 0);
-        setcontext( &(scheduler->tcb->context) );
-        scheduler->tcb->status = RUNNING;
-        return;
-}
-
 /* scheduler */
 static void schedule() {
 
@@ -306,13 +347,12 @@ static void sched_mlfq() {
 // Queue Functions
 void createQueue() {
 
-        run_q = (Queue *)malloc(sizeof(Queue) * MAX_WORKERS);
+        run_q = (Queue *) malloc( sizeof(Queue) );
         run_q->capacity = MAX_WORKERS;
         run_q->front = NULL;
         run_q->rear = NULL;
        
         return;
-
 }
 
 void enqueue(wthread* worker) {
@@ -391,6 +431,8 @@ void Timer() {
 
 //------------------------------------------------------------------------------------------------------
 
-void initialize_lib() {
-        printf("Testing\n");
+void DoStuff(void) {
+
+  printf("Timer went off.\n");
+
 }
