@@ -12,6 +12,7 @@
 ucontext_t cctx, nctx, main_context;
 int flip = 0;
 int inMain = 0;
+int count = 0;
 struct itimerval it_val;	/* for setting itimer */
 
 
@@ -23,13 +24,13 @@ void execute(void *(*function)(void*), void * arg, ucontext_t* current_context);
 
 void*  f1withparam(){
 	
-	for (int i=0; i < 1000000; i++){
+	for (int i=0; i < 10000; i++){
 		printf("Thread 1:%d\n", i);
 	}
 }
 
 void*  f2withparam(){
-	for (int i=1000000; i < 1000000000; i++){
+	for (int i=10000; i < 20000; i++){
 		printf("Thread 2:%d\n", i);
 	}
 }
@@ -120,7 +121,9 @@ int main(int argc, char **argv) {
 
   	while (1) {
 
-  		sleep(1);
+  		if (count == 2){
+  			exit(0);
+  		}
   	}
 
   	return 0;
@@ -175,6 +178,8 @@ void execute(void *(*function)(void*), void * arg, ucontext_t* current_context){
 	inMain = 1;
 
 	function(arg);
+
+	count++;
 
 	swapcontext(current_context, &main_context);
 }
