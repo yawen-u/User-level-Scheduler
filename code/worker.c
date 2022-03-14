@@ -349,35 +349,35 @@ static void sched_mlfq() {
 //------------------------------------------------------------------------------------------------------
 
 // Queue Functions
-void createQueue() {
+void createQueue(Queue* Q) {
 
-        run_q = (Queue *) malloc( sizeof(Queue) );
-        run_q->capacity = MAX_WORKERS;
-        run_q->front = run_q->rear = NULL;
+        Q = (Queue *) malloc( sizeof(Queue) );
+        Q->capacity = MAX_WORKERS;
+        Q->front = Q->rear = NULL;
 }
 
-void enqueue(wthread* worker) {
+void enqueue(Queue* Q, wthread* worker) {
 
-        if(numWorkers >= run_q->capacity) {
+        if(numWorkers >= Q->capacity) {
                 perror("run_queue is Full\n");
                 exit(1);
         } else {
                 worker->next = NULL;
 
                 // If the Queue is empty
-                if (run_q->rear == NULL){
+                if (Q->rear == NULL){
 
-                        run_q->front = run_q->rear = worker;
+                        Q->front = Q->rear = worker;
                         return;
                 }
 
                 // Otherwise add at the rear
-                run_q->rear->next = worker;
-                run_q->rear = worker;
+                Q->rear->next = worker;
+                Q->rear = worker;
         }
 }
 
-wthread* dequeue(Queue *Q) {
+wthread* dequeue(Queue* Q) {
         
         wthread* curr = NULL;
 
@@ -394,7 +394,7 @@ wthread* dequeue(Queue *Q) {
                         Q->rear = NULL; // Also update the rear
                 }
         }
-        
+
         return curr;
 }
 
