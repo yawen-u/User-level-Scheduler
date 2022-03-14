@@ -354,23 +354,26 @@ void createQueue() {
         run_q = (Queue *) malloc( sizeof(Queue) );
         run_q->capacity = MAX_WORKERS;
         run_q->front = run_q->rear = NULL;
-       
 }
 
 void enqueue(wthread* worker) {
 
-        if(numWorkers == run_q->capacity) {
+        if(numWorkers >= run_q->capacity) {
                 perror("run_queue is Full\n");
                 exit(1);
         } else {
                 worker->next = NULL;
-                if (run_q->rear != NULL) {
-                        run_q->rear->next = worker;
+
+                // If the Queue is empty
+                if (run_q->rear == NULL){
+
+                        run_q->front = run_q->rear = worker;
+                        return;
                 }
+
+                // Otherwise add at the rear
+                run_q->rear->next = worker;
                 run_q->rear = worker;
-                if(run_q->front == NULL) {
-                        run_q->front = worker;  
-                }
         }
 }
 
@@ -385,8 +388,13 @@ wthread* dequeue(Queue *Q) {
                 curr = Q->front;
                 numWorkers--;
                 Q->front = Q->front->next;
+
+                // In case the front becomes NULL
+                if (Q->front == NULL){
+                        Q->rear = NULL; // Also update the rear
+                }
         }
-        free(curr);
+        
         return curr;
 }
 
@@ -418,39 +426,6 @@ void destroyQ() {
         }
 }
 
-//------------------------------------------------------------------------------------------------------
-/*  Timer ---------------------------------------------------------------------------------------  */
-
-// void DoStuff(void) {
-
-//   printf("Timer went off.\n");
-  
-
-// }
-
-void Timer() {
-
-        // struct itimerval it_val;      /* for setting itimer */
-
-        // /* Upon SIGALRM, call DoStuff().
-        //  * Set interval timer.  We want frequency in ms, 
-        //  * but the setitimer call needs seconds and useconds. */
-        // if (signal(SIGALRM, (void (*)(int)) DoStuff) == SIG_ERR) {
-        //   printf("Unable to catch SIGALRM");
-        //   exit(1);
-        // }
-        // it_val.it_value.tv_sec =     INTERVAL/1000;
-        // it_val.it_value.tv_usec =    (INTERVAL*1000) % 1000000;       
-        // it_val.it_interval = it_val.it_value;
-        // if (setitimer(ITIMER_REAL, &it_val, NULL) == -1) {
-        //   printf("error calling setitimer()");
-        //   exit(1);
-        // }
-
-        // while (1) 
-        //   pause();
-
-}
 
 //------------------------------------------------------------------------------------------------------
 
