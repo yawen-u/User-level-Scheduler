@@ -7,29 +7,34 @@
 #include <ucontext.h>
 
 #define STACK_SIZE SIGSTKSZ
-#define INTERVAL 500		/* number of milliseconds to go off */
+#define INTERVAL 5		/* number of milliseconds to go off */
 
 ucontext_t cctx, nctx, main_context;
 int flip = 0;
+int inMain = 0;
 struct itimerval it_val;	/* for setting itimer */
 
 
 /* function prototype */
 void DoStuff(void);
+void execute(void *(*function)(void*), void * arg, ucontext_t* current_context);
+
+
 
 void*  f1withparam(){
-	puts("Hello I am function 1\n");
-	/* setcontext sets PC <--value in nctx context*/
-	//swapcontext(&cctx, &main_context);
-	setcontext(&main_context);
+	
+	for (int i=0; i < 1000000; i++){
+		printf("Thread 1:%d\n", i);
+	}
 }
 
 void*  f2withparam(){
-	puts("Hello I am function 2\n");
-	/* setcontext sets PC <--value in nctx context*/
-	//swapcontext(&nctx, &main_context);
-	setcontext(&main_context);
+	for (int i=1000000; i < 1000000000; i++){
+		printf("Thread 2:%d\n", i);
+	}
 }
+
+
 
 
 int main(int argc, char **argv) {
@@ -44,6 +49,7 @@ int main(int argc, char **argv) {
     	printf("Unable to catch SIGALRM");
     	exit(1);
   	}
+
 
   	it_val.it_value.tv_sec =     INTERVAL/1000;
   	it_val.it_value.tv_usec =    (INTERVAL*1000) % 1000000;	
@@ -78,7 +84,7 @@ int main(int argc, char **argv) {
 	
 	
 	// Make the context to start running at f1withparam()
-	makecontext(&cctx,(void *)&f1withparam,0);
+	makecontext(&cctx,(void *)&execute,3, &f1withparam, NULL, &cctx);
 	
 
 
@@ -106,14 +112,15 @@ int main(int argc, char **argv) {
 	
 	
 	// Make the context to start running at f2withparam()
-	makecontext(&nctx,(void *)&f2withparam,0);
+	makecontext(&nctx,(void *)&execute,3, &f2withparam, NULL, &nctx);
 
 	
 
 
 
   	while (1) {
-  		
+
+  		sleep(1);
   	}
 
   	return 0;
@@ -122,17 +129,52 @@ int main(int argc, char **argv) {
 
 void DoStuff(void) {
 
-	if (flip == 0){
+	// We are currently in a worker process
+	if (inMain == 1){
 
-		swapcontext(&main_context, &cctx);
-		flip = 1;	
+		if (flip == 0){
+
+			flip = 1;
+			inMain = 0;
+			swapcontext(&cctx, &main_context);
+		}
+
+		else{
+
+			flip = 0;
+			inMain = 0;
+			swapcontext(&nctx, &main_context);
+		}
 	}
 
+	// We are in the Main process
 	else{
 
-		swapcontext(&main_context, &nctx);
-		flip = 0;
-	}
-	
 
+		if (flip == 0){
+
+			//flip = 1;
+			inMain = 1;
+			swapcontext(&main_context, &cctx);
+		}
+
+		else{
+
+			//flip = 0;
+			inMain = 1;
+			swapcontext(&main_context, &nctx);
+		}
+	}
+
+
+}
+
+
+void execute(void *(*function)(void*), void * arg, ucontext_t* current_context){
+
+	inMain = 1;
+
+	function(arg);
+
+	swapcontext(current_context, &main_context);
 }
