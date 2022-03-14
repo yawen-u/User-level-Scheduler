@@ -60,9 +60,6 @@ int main(int argc, char **argv) {
     	exit(1);
   	}
 
-
-	
-	
 	
 	if (getcontext(&cctx) < 0){
 		perror("getcontext");
@@ -115,9 +112,6 @@ int main(int argc, char **argv) {
 	// Make the context to start running at f2withparam()
 	makecontext(&nctx,(void *)&execute,3, &f2withparam, NULL, &nctx);
 
-	
-
-
 
   	while (1) {
 
@@ -130,7 +124,9 @@ int main(int argc, char **argv) {
 }
 
 
-void DoStuff(void) {
+void DoStuff(void) { // Scheduler
+
+	printf("\nTimer went off. Switch to Scheduler context;\n");
 
 	// We are currently in a worker process
 	if (inMain == 1){
@@ -161,7 +157,7 @@ void DoStuff(void) {
 			swapcontext(&main_context, &cctx);
 		}
 
-		else{
+		else {
 
 			//flip = 0;
 			inMain = 1;
@@ -181,5 +177,5 @@ void execute(void *(*function)(void*), void * arg, ucontext_t* current_context){
 
 	count++;
 
-	swapcontext(current_context, &main_context);
+	//swapcontext(current_context, &main_context);
 }

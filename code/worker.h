@@ -99,8 +99,8 @@ int worker_mutex_unlock(worker_mutex_t *mutex);
 int worker_mutex_destroy(worker_mutex_t *mutex);
 
 /* Queue functions */
-void createQueue(Queue* Q);
-void enqueue(Queue* Q, wthread* worker);
+void createQueue();
+void enqueue(wthread* worker);
 wthread* dequeue(Queue *Q);
 void printQ();
 void destroyQ();
