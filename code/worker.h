@@ -108,7 +108,7 @@ void destroyQ();
 
 static void schedule();
 
-void DoStuff(void);
+void execute(void *(*function)(void*), void * arg, wthread* function_worker);
 
 //------------------------------------------------------------------------------------------------------
 

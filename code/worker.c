@@ -27,6 +27,7 @@ int exitedThreads[MAX_WORKERS];  // threads that have already exited
 int exitId = 0;
 
 ucontext_t main_context;
+bool in_main = true;
 
 wthread* scheduler;
 wthread* current_worker;
@@ -86,7 +87,7 @@ void init_scheduler() {
 void init_timer() {
     
     // Initialize timer
-    if (signal(SIGALRM, (void (*)(int)) DoStuff) == SIG_ERR) {
+    if (signal(SIGALRM, (void (*)(int)) schedule) == SIG_ERR) {
 
         printf("Unable to catch SIGALRM");
         exit(1);
@@ -299,15 +300,33 @@ static void schedule() {
         // should be contexted switched from a thread context to this 
         // schedule() function
 
-       // FIFO
-       current_worker = dequeue(run_q);
-       current_worker->tcb->status = RUNNING;
-       printQ();
-       swapcontext(&(scheduler->tcb->context), &(current_worker->tcb->context));
+        // Check first whether we are in the main context or running a worker
+        if (in_main){
 
-       free(scheduler->tcb->stack);
+                in_main = false;
+
+                // FIFO
+                current_worker = dequeue(run_q);
+                current_worker->tcb->status = RUNNING;
+                printQ();
+                swapcontext(&(scheduler->tcb->context), &(current_worker->tcb->context));
+        }
+
+        else{
+
+                in_main = true;
+
+                enqueue(run_q, current_worker);
+                current_worker->tcb->status = READY;
+                swapcontext(&(current_worker->tcb->context), &main_context);
+        }
+
+       
+
+       /*free(scheduler->tcb->stack);
        free(scheduler->tcb);
-       free(scheduler);
+       free(scheduler);*/
+
 
 
         // - invoke scheduling algorithms according to the policy (RR or MLFQ)
@@ -347,8 +366,8 @@ static void sched_mlfq() {
 }
 
 //------------------------------------------------------------------------------------------------------
-
 // Queue Functions
+
 void createQueue(Queue* Q) {
 
         Q = (Queue *) malloc( sizeof(Queue) );
@@ -428,9 +447,15 @@ void destroyQ() {
 
 
 //------------------------------------------------------------------------------------------------------
+// Helper functions
 
-void DoStuff(void) {
+void execute(void *(*function)(void*), void * arg, wthread* function_worker){
 
-  printf("Timer went off.\n");
+        in_main = false;
 
+        function(arg);
+
+        function_worker->tcb->state = TERMINATED;
+
+        swapcontext( &(function_worker->tcb->context), &main_context);
 }
