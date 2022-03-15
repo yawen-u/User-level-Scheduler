@@ -23,7 +23,7 @@ bool first_invoke = true;
 
 
 Queue* run_q;
-int exitedThreads[MAX_WORKERS];  // threads that have already exited
+worker_t exitedThreads[MAX_WORKERS];  // threads that have already exited
 int exitId = 0;
 void *(*func)(void*);
 void * arg;
@@ -197,9 +197,9 @@ void worker_exit(void *value_ptr) {
       
         if (value_ptr != NULL){
                 printf("exiting worker\n");
-                free(current_worker->tcb->stack);
-                free(current_worker->tcb);
-                free(current_worker);
+                // free(temp->tcb->stack);
+                // free(temp->tcb);
+                // free(temp);
         }
 
         return;
@@ -321,7 +321,7 @@ static void schedule() {
                 current_worker = dequeue(run_q);
                 printf("%d\n", current_worker->tcb->wid);
                 current_worker->tcb->status = RUNNING;
-                //printQ();
+               
                 swapcontext(&(scheduler->tcb->context), &(current_worker->tcb->context));
         }
 
@@ -330,8 +330,18 @@ static void schedule() {
                 printf("In worker: \n");
                 in_main = true;
                 printf("%d\n", current_worker->tcb->wid);
-                enqueue(current_worker);
-                current_worker->tcb->status = READY;
+                if (current_worker->tcb->status == TERMINATED) {
+                        wthread* exit_worker = current_worker;
+                        current_worker = current_worker->next;
+                        printf("worker %d is done running. Now worker %d is Running. \n", exit_worker->tcb->wid,current_worker->tcb->wid);
+                        free(exit_worker->tcb->stack);
+                        free(exit_worker->tcb);
+                        free(exit_worker);
+                } else {
+                        enqueue(current_worker);
+                        current_worker->tcb->status = READY;
+                }
+
                 swapcontext(&(current_worker->tcb->context), &(scheduler->tcb->context));
         }
        
@@ -470,7 +480,7 @@ void execute(wthread* worker){
         printf("function done;\n");
 
         worker->tcb->status = TERMINATED;
-        //worker_exit((void*)worker);
+        exitedThreads[exitId] = worker->tcb->wid;
 
         swapcontext( &(worker->tcb->context), &(scheduler->tcb->context));
 }
