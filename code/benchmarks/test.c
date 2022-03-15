@@ -17,14 +17,20 @@ void squares();
 
 void*  f1withparam(){
     
-    for (int i=0; i < 10000; i++){
+    for (int i=0; i < 5000; i++){
         printf("Thread 1:%d\n", i);
     }
 }
 
 void*  f2withparam(){
-    for (int i=10000; i < 20000; i++){
+    for (int i=5000; i < 10000; i++){
         printf("Thread 2:%d\n", i);
+    }
+}
+
+void*  f3withparam(){
+    for (int i=10000; i < 15000; i++){
+        printf("Thread 3:%d\n", i);
     }
 }
 
@@ -61,18 +67,22 @@ int main(int argc, char **argv) {
     //--------------------------------------------------------------------------------------
    
     // WORKER_CREATE TESTING
-    // createQueue();
-    // init_timer();
+    
     worker_t wid1;
     worker_t ret1 = worker_create(&wid1, NULL, &f1withparam, NULL);
 
     worker_t wid2;
     worker_t ret2 = worker_create(&wid2, NULL, &f2withparam, NULL);
 
+    worker_t wid3;
+    worker_t ret3 = worker_create(&wid3, NULL, &f3withparam, NULL);
+
+    int retj = worker_join(ret3, NULL);
+
     while (1) {
         
     }
-    //destroyQ();
+
 
     // Join the threads when done
 /*    for (int i = 0; i < thread_num; ++i){

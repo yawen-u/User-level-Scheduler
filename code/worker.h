@@ -104,6 +104,7 @@ int worker_mutex_destroy(worker_mutex_t *mutex);
 void createQueue();
 void enqueue(wthread* worker);
 wthread* dequeue();
+void removeFQ(worker_t worker);
 void printQ();
 void destroyQ();
 

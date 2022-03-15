@@ -23,8 +23,7 @@ bool first_invoke = true;
 
 
 Queue* run_q;
-worker_t exitedThreads[MAX_WORKERS];  // threads that have already exited
-int exitId = 0;
+bool join;
 void *(*func)(void*);
 void * arg;
 
@@ -33,6 +32,7 @@ bool in_main = true;
 
 wthread* scheduler;
 wthread* current_worker;
+wthread* join_worker;
 
 struct itimerval it_val;        /* for setting itimer */
 
@@ -157,7 +157,6 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
         }
 
         makecontext(&(current_worker->tcb->context),(void *)&execute,1, current_worker);
-        //setcontext( &(current_worker->tcb->context) );
 
         // after everything is set, push this thread into run queue and make it ready for the execution
         enqueue(current_worker);
@@ -210,48 +209,41 @@ void worker_exit(void *value_ptr) {
 
 /* Wait for thread termination */
 int worker_join(worker_t thread, void **value_ptr) {
+
+        printf("ENTER WORKER JOIN:\n");
         
         // - wait for a specific thread to terminate
         // - check if the thread already existed
-        bool join = true;
-        for (int i = 0; i < MAX_WORKERS; i++) {
-                if (thread == exitedThreads[i]) {
-                        join = false;
-                        printf("thead already existed.\n");
-                        return 1;
-                }
-        }
+        join = false;
+        wthread* ptr = run_q->front;
+        while (ptr != NULL) {
+                if (ptr->tcb->wid == thread && ptr->tcb->status != TERMINATED) { // thread found
+                        join = true; 
+                        join_worker = ptr;
 
-        if (join) {
-                // block the current thread
-                current_worker->tcb->status = WAIT;
-
-                // find the specific thread in queue
-                wthread* temp_worker = run_q->front;
-                while (temp_worker->next != NULL) {
-
-                        if (current_worker->tcb->wid == thread) { // thread found
-                                // saves the current context then swaps it out for the thread context.
-                                swapcontext(&(current_worker->tcb->context), &(temp_worker->tcb->context));
-
-                                // wait for termination
-                                while (1) {
-                                        if (temp_worker->tcb->status == TERMINATED) {
-                                                exitedThreads[exitId] = temp_worker->tcb->wid;
-                                                free(temp_worker->tcb->stack);
-                                                break;
-                                        } 
-                                }
-                                setcontext(&scheduler->tcb->context);
-                                return 0;
-                        } else {
-                                temp_worker = temp_worker->next;
+                        if (in_main){
+                                printf("Main join: %d\n", ptr->tcb->wid);
+                                in_main = false;
+                               
+                                swapcontext(&(scheduler->tcb->context), &(join_worker->tcb->context));
                         }
 
-                }
+                        else { 
+                                printf("Worker join: %d \n", ptr->tcb->wid);
+                                in_main = true;
+                                current_worker->tcb->status = WAIT;
+                                swapcontext(&(current_worker->tcb->context), &(join_worker->tcb->context));
+                        }
 
+                        return 0;
+                }
+                ptr = ptr->next;
         }
-  
+
+        if (!join) {
+                return 1;
+        }
+
         return 0;
 };
 
@@ -318,7 +310,7 @@ static void schedule() {
                 in_main = false;
 
                 // FIFO
-                //printQ();
+                printQ();
                 if (run_q->front == NULL) {
                         printf("All finished.\n");
                         destroyQ();
@@ -327,19 +319,39 @@ static void schedule() {
 
                 // if current worker is done running, exit the terminated worker then run the next worker in queue
                 if (current_worker->tcb->status == TERMINATED) {
-                        wthread* exit_worker = current_worker;
-                        printf("exit worker %d; ", exit_worker->tcb->wid);
+                        printf("exit worker %d; ", current_worker->tcb->wid);
                         numWorkers--;
-                        free(exit_worker->tcb->stack);
-                        free(exit_worker->tcb);
-                        free(exit_worker);
                 } 
 
-                current_worker = dequeue(run_q);
-                current_worker->tcb->status = RUNNING;
-                printf("running worker %d\n", current_worker->tcb->wid);
-               
-                swapcontext(&(scheduler->tcb->context), &(current_worker->tcb->context));
+                // if there is a worker to join
+                if (join) {
+                        if (join_worker->tcb->status == TERMINATED) {
+                                // if join_worker is done, remove it from the queue;
+                                removeFQ(join_worker->tcb->wid);
+                                join = false;
+
+                                // All done with the joinning thread - select next to run
+                                current_worker = dequeue(run_q);
+                                current_worker->tcb->status = RUNNING;
+                                printf("running worker %d\n", current_worker->tcb->wid);
+                                swapcontext(&(scheduler->tcb->context), &(current_worker->tcb->context));
+
+                        } else {
+                                // else - keep wait for it to terminate
+                                swapcontext(&(scheduler->tcb->context), &(join_worker->tcb->context));
+                        }
+                }
+                
+                // no worker to wait for
+                else {
+                        // select next worker in queue
+                        current_worker = dequeue(run_q);
+                        current_worker->tcb->status = RUNNING;
+                        printf("running worker %d\n", current_worker->tcb->wid);
+                       
+                        swapcontext(&(scheduler->tcb->context), &(current_worker->tcb->context));
+                }
+
         }
 
         // In worker thread - swap back to scheduler context
@@ -348,7 +360,7 @@ static void schedule() {
                 in_main = true;
 
                 // Only enqueue workers who are not done running
-                if (current_worker->tcb->status != TERMINATED) {
+                if (current_worker->tcb->status != TERMINATED && current_worker != join_worker) {
                         enqueue(current_worker);
                         current_worker->tcb->status = READY;
                 }
@@ -446,6 +458,29 @@ wthread* dequeue() {
         return curr;
 }
 
+// Remove a worker from the Q
+void removeFQ(worker_t worker) {
+
+        if (run_q->front == NULL) {
+                perror("Empty Queue;\n");
+                exit(1);
+        }
+
+        wthread* prev = NULL;
+        wthread* temp = run_q->front;
+
+        while (temp != NULL){
+                if (temp->tcb->wid == worker) {
+                        prev->next = temp->next;
+                }
+                prev = temp;
+                temp = temp->next;
+        }
+
+        // free(temp->tcb);
+        // free(temp);
+}
+
 void printQ(){
         if (run_q->front == NULL) {
                 printf("Empty Queue;\n");
@@ -465,6 +500,7 @@ void destroyQ() {
         wthread* curr = run_q->front;
         while (curr != NULL) {
                 wthread* temp = curr->next;
+                free(curr->tcb->stack);
                 free(curr->tcb);
                 free(curr);
                 curr = temp;
@@ -489,7 +525,6 @@ void execute(wthread* worker){
         printf("function done;\n");
 
         worker->tcb->status = TERMINATED;
-        exitedThreads[exitId] = worker->tcb->wid;
 
         swapcontext( &(worker->tcb->context), &(scheduler->tcb->context));
 }
