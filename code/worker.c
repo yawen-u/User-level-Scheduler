@@ -314,30 +314,41 @@ static void schedule() {
         // Check first whether we are in the main context or running a worker
         if (in_main){
 
-                printf("In main: \n");
+                printf("In main: %d\n", current_worker->tcb->wid);
                 in_main = false;
 
                 // FIFO
+                //printQ();
+                if (run_q->front == NULL) {
+                        printf("All finished.\n");
+                        destroyQ();
+                        exit(0);
+                }
+
+                // if current worker is done running, exit the terminated worker then run the next worker in queue
+                if (current_worker->tcb->status == TERMINATED) {
+                        wthread* exit_worker = current_worker;
+                        printf("exit worker %d; ", exit_worker->tcb->wid);
+                        numWorkers--;
+                        free(exit_worker->tcb->stack);
+                        free(exit_worker->tcb);
+                        free(exit_worker);
+                } 
+
                 current_worker = dequeue(run_q);
-                printf("%d\n", current_worker->tcb->wid);
                 current_worker->tcb->status = RUNNING;
+                printf("running worker %d\n", current_worker->tcb->wid);
                
                 swapcontext(&(scheduler->tcb->context), &(current_worker->tcb->context));
         }
 
         // In worker thread - swap back to scheduler context
         else { 
-                printf("In worker: \n");
+                printf("In worker: %d \n", current_worker->tcb->wid);
                 in_main = true;
-                printf("%d\n", current_worker->tcb->wid);
-                if (current_worker->tcb->status == TERMINATED) {
-                        wthread* exit_worker = current_worker;
-                        current_worker = current_worker->next;
-                        printf("worker %d is done running. Now worker %d is Running. \n", exit_worker->tcb->wid,current_worker->tcb->wid);
-                        free(exit_worker->tcb->stack);
-                        free(exit_worker->tcb);
-                        free(exit_worker);
-                } else {
+
+                // Only enqueue workers who are not done running
+                if (current_worker->tcb->status != TERMINATED) {
                         enqueue(current_worker);
                         current_worker->tcb->status = READY;
                 }
@@ -420,19 +431,17 @@ wthread* dequeue() {
         
         wthread* curr = NULL;
 
-        if(!run_q) {
-                perror("run_queue is Empty\n");
+        if(run_q == NULL) {
+                perror("No more worker to dequeue.\n");
                 exit(1);
-        } 
-        if (run_q->front){
+        } else {
                 curr = run_q->front;
-                numWorkers--;
                 run_q->front = run_q->front->next;
-        }
 
-        // In case the front becomes NULL
-        if (run_q->front == NULL){
-                run_q->rear = NULL; // Also update the rear
+                // In case the front becomes NULL
+                if (run_q->front == NULL){
+                        run_q->rear = NULL; // Also update the rear
+                }
         }
         return curr;
 }
