@@ -15,6 +15,19 @@ void squares();
  * This will not be graded.
  */
 
+void*  f1withparam(){
+    
+    for (int i=0; i < 10000; i++){
+        printf("Thread 1:%d\n", i);
+    }
+}
+
+void*  f2withparam(){
+    for (int i=10000; i < 20000; i++){
+        printf("Thread 2:%d\n", i);
+    }
+}
+
 int main(int argc, char **argv) {
 
     // QUEUE TESTING
@@ -37,8 +50,10 @@ int main(int argc, char **argv) {
     // createQueue();
     // enqueue(thread1);
     // enqueue(thread2);
-    // dequeue(thread1);  // Dequeue is not working correctly
-    // enqueue(thread3);  
+    // enqueue(thread3); 
+    // wthread* deq1 = dequeue(); 
+    // wthread* deq2 = dequeue();
+    // wthread* deq3 = dequeue(); 
     // printQ();
     // destroyQ();
 
@@ -49,15 +64,13 @@ int main(int argc, char **argv) {
     // createQueue();
     // init_timer();
     worker_t wid1;
-    worker_t ret1 = worker_create(&wid1, NULL, &fibonacchi, NULL);
+    worker_t ret1 = worker_create(&wid1, NULL, &f1withparam, NULL);
 
-    // worker_t wid2;
-    // worker_t ret2 = worker_create(&wid2, NULL, &fibonacchi, NULL);
+    worker_t wid2;
+    worker_t ret2 = worker_create(&wid2, NULL, &f2withparam, NULL);
 
     while (1) {
-        // if (count == 2){
-        //     exit(0);
-        // }
+        
     }
     //destroyQ();
 
@@ -70,7 +83,6 @@ int main(int argc, char **argv) {
 
 	return 0;
 }
-
 
 
 

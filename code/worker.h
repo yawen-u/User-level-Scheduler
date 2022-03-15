@@ -51,6 +51,8 @@ typedef struct worker_mutex_t {
 typedef struct wthread {
 	tcb* tcb; // Worker Thread TCB
 	struct wthread* next;
+	void *(*function)(void*);
+	void * arg;
 } wthread;
 
 typedef struct Queue {
@@ -101,14 +103,14 @@ int worker_mutex_destroy(worker_mutex_t *mutex);
 /* Queue functions */
 void createQueue();
 void enqueue(wthread* worker);
-wthread* dequeue(Queue *Q);
+wthread* dequeue();
 void printQ();
 void destroyQ();
 
 
 static void schedule();
 
-void execute(void *(*function)(void*), void * arg, wthread* function_worker);
+void execute(wthread* worker);
 
 //------------------------------------------------------------------------------------------------------
 

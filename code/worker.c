@@ -15,7 +15,7 @@
 #define WAIT 3
 #define TERMINATED 4
 #define MAX_WORKERS 20
-#define INTERVAL 500            /* number of milliseconds to go off */
+#define INTERVAL 5            /* number of milliseconds to go off */
 
 
 int numWorkers = 0;
@@ -25,6 +25,8 @@ bool first_invoke = true;
 Queue* run_q;
 int exitedThreads[MAX_WORKERS];  // threads that have already exited
 int exitId = 0;
+void *(*func)(void*);
+void * arg;
 
 ucontext_t main_context;
 bool in_main = true;
@@ -109,7 +111,7 @@ void init_timer() {
 
 //------------------------------------------------------------------------------------------------------
 /* create a new thread */
-int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg) {
+int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arguments) {
 
         if (first_invoke) {
                 initialize();
@@ -125,7 +127,6 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
                 printf("Could Not allocate Memory to wthread\n"); 
                 exit(1);
         }
-        //current_worker->function = function;
 
         // - create Thread Control Block (TCB)
         if( (current_worker->tcb = malloc(sizeof(tcb)) ) == NULL ) {
@@ -146,6 +147,8 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
         current_worker->tcb->context.uc_stack.ss_sp = current_worker->tcb->stack;
         current_worker->tcb->context.uc_stack.ss_size = STACK_SIZE;
         current_worker->tcb->context.uc_stack.ss_flags = 0;
+        current_worker->function = function;
+        current_worker->arg = arguments;
         //current_worker->tcb.priority;
 
         if (current_worker->tcb->stack == NULL){
@@ -153,7 +156,7 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
                 exit(1);
         }
 
-        makecontext(&(current_worker->tcb->context),(void *)&execute,3, &function, NULL, current_worker);
+        makecontext(&(current_worker->tcb->context),(void *)&execute,1, current_worker);
         //setcontext( &(current_worker->tcb->context) );
 
         // after everything is set, push this thread into run queue and make it ready for the execution
@@ -191,10 +194,15 @@ int worker_yield() {
 void worker_exit(void *value_ptr) {
 
         // - de-allocate any dynamic memory created when starting this thread
-        free(current_worker->tcb->stack);
-        free(current_worker->tcb);
-        free(current_worker);
+      
+        if (value_ptr != NULL){
+                printf("exiting worker\n");
+                free(current_worker->tcb->stack);
+                free(current_worker->tcb);
+                free(current_worker);
+        }
 
+        return;
 };
 
 //------------------------------------------------------------------------------------------------------
@@ -310,9 +318,9 @@ static void schedule() {
                 in_main = false;
 
                 // FIFO
-                // current_worker = dequeue(run_q);
-                // printf("%d\n", current_worker->tcb->wid);
-                // current_worker->tcb->status = RUNNING;
+                current_worker = dequeue(run_q);
+                printf("%d\n", current_worker->tcb->wid);
+                current_worker->tcb->status = RUNNING;
                 //printQ();
                 swapcontext(&(scheduler->tcb->context), &(current_worker->tcb->context));
         }
@@ -322,8 +330,8 @@ static void schedule() {
                 printf("In worker: \n");
                 in_main = true;
                 printf("%d\n", current_worker->tcb->wid);
-                // enqueue(current_worker);
-                // current_worker->tcb->status = READY;
+                enqueue(current_worker);
+                current_worker->tcb->status = READY;
                 swapcontext(&(current_worker->tcb->context), &(scheduler->tcb->context));
         }
        
@@ -398,26 +406,25 @@ void enqueue(wthread* worker) {
         }
 }
 
-wthread* dequeue(Queue *Q) {
+wthread* dequeue() {
         
         wthread* curr = NULL;
 
-        if(!Q) {
-                perror("Queue is Empty\n");
+        if(!run_q) {
+                perror("run_queue is Empty\n");
                 exit(1);
         } 
-        if (Q->front){
-                curr = Q->front;
+        if (run_q->front){
+                curr = run_q->front;
                 numWorkers--;
-                Q->front = Q->front->next;
-                return curr;
+                run_q->front = run_q->front->next;
         }
 
         // In case the front becomes NULL
-        if (Q->front == NULL){
-                Q->rear = NULL; // Also update the rear
+        if (run_q->front == NULL){
+                run_q->rear = NULL; // Also update the rear
         }
-        return NULL;
+        return curr;
 }
 
 void printQ(){
@@ -450,18 +457,20 @@ void destroyQ() {
 //------------------------------------------------------------------------------------------------------
 // Helper functions
 
-void execute(void *(*function)(void*), void * arg, wthread* function_worker){
+void execute(wthread* worker){
 
         printf("ENTER EXECUTE.\n");
 
         in_main = false;
 
-        setcontext(&(function_worker->tcb->context));
-        // function(arg);
+        func = worker->function;
+        arg = worker->arg;
+        func(arg);
 
         printf("function done;\n");
 
-        function_worker->tcb->status = TERMINATED;
+        worker->tcb->status = TERMINATED;
+        //worker_exit((void*)worker);
 
-        //swapcontext( &(function_worker->tcb->context), &(scheduler->tcb->context));
+        swapcontext( &(worker->tcb->context), &(scheduler->tcb->context));
 }
