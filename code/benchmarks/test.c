@@ -34,6 +34,12 @@ void*  f3withparam(){
     }
 }
 
+void*  f4withparam(){
+    for (int i=15000; i < 20000; i++){
+        printf("Thread 4:%d\n", i);
+    }
+}
+
 int main(int argc, char **argv) {
 
     // QUEUE TESTING
@@ -77,7 +83,12 @@ int main(int argc, char **argv) {
     worker_t wid3;
     worker_t ret3 = worker_create(&wid3, NULL, &f3withparam, NULL);
 
-    int retj = worker_join(ret3, NULL);
+    worker_t wid4;
+    worker_t ret4 = worker_create(&wid4, NULL, &f4withparam, NULL);
+
+    int retj1 = worker_join(ret2, NULL);
+
+    // int retj2 = worker_join(ret3, NULL);
 
     while (1) {
         

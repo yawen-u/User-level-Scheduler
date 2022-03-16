@@ -220,20 +220,8 @@ int worker_join(worker_t thread, void **value_ptr) {
                 if (ptr->tcb->wid == thread && ptr->tcb->status != TERMINATED) { // thread found
                         join = true; 
                         join_worker = ptr;
-
-                        if (in_main){
-                                printf("Main join: %d\n", ptr->tcb->wid);
-                                in_main = false;
-                               
-                                swapcontext(&(scheduler->tcb->context), &(join_worker->tcb->context));
-                        }
-
-                        else { 
-                                printf("Worker join: %d \n", ptr->tcb->wid);
-                                in_main = true;
-                                current_worker->tcb->status = WAIT;
-                                swapcontext(&(current_worker->tcb->context), &(join_worker->tcb->context));
-                        }
+                        current_worker = join_worker;
+                        swapcontext(&(scheduler->tcb->context), &(join_worker->tcb->context));
 
                         return 0;
                 }
@@ -328,6 +316,7 @@ static void schedule() {
                         if (join_worker->tcb->status == TERMINATED) {
                                 // if join_worker is done, remove it from the queue;
                                 removeFQ(join_worker->tcb->wid);
+                                printQ();
                                 join = false;
 
                                 // All done with the joinning thread - select next to run
@@ -362,6 +351,7 @@ static void schedule() {
                 // Only enqueue workers who are not done running
                 if (current_worker->tcb->status != TERMINATED && current_worker != join_worker) {
                         enqueue(current_worker);
+                        //printQ();
                         current_worker->tcb->status = READY;
                 }
 
@@ -471,7 +461,14 @@ void removeFQ(worker_t worker) {
 
         while (temp != NULL){
                 if (temp->tcb->wid == worker) {
-                        prev->next = temp->next;
+                        if (temp == run_q->front) {
+                                run_q->front = run_q->front->next;
+                        } else if (temp == run_q->rear) {
+                                prev->next = NULL;
+                                run_q->rear = prev;
+                        } else {
+                                prev->next = temp->next;
+                        }
                 }
                 prev = temp;
                 temp = temp->next;
