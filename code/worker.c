@@ -23,6 +23,7 @@ bool first_invoke = true;
 
 
 Queue* run_q;
+Queue* join_q;
 bool join;
 void *(*func)(void*);
 void * arg;
@@ -30,6 +31,7 @@ void * arg;
 ucontext_t main_context;
 bool in_main = true;
 
+wthread* main_worker;
 wthread* scheduler;
 wthread* current_worker;
 wthread* join_worker;
@@ -43,7 +45,7 @@ void initialize(){
 
         first_invoke = false; // We only initialize the first time
 
-        createQueue();
+        createQueue(&run_q);
 
         init_scheduler();
 
@@ -51,6 +53,30 @@ void initialize(){
 
 }
 
+void init_main_worker(){
+
+        if( (main_worker = malloc(sizeof(wthread)) ) == NULL ) {
+                printf("Could Not allocate Memory to wthread\n"); 
+                exit(1);
+        }
+        if( (main_worker->tcb = malloc(sizeof(tcb)) ) == NULL ) {
+                printf("Could Not allocate Memory to tcb\n"); 
+                exit(1);
+        }
+
+        // - create and initialize the context of this worker thread
+        if (getcontext( &(main_worker->tcb->context) ) < 0){
+                perror("getcontext");
+                exit(1);
+        }
+        main_worker->tcb->wid = 777;
+        
+        main_worker->tcb->status = READY;
+
+        enqueue(&run_q, main_worker);
+
+        return;
+}
 
 void init_scheduler() {
         
@@ -159,7 +185,7 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
         makecontext(&(current_worker->tcb->context),(void *)&execute,1, current_worker);
 
         // after everything is set, push this thread into run queue and make it ready for the execution
-        enqueue(current_worker);
+        enqueue(&run_q, current_worker);
         current_worker->tcb->status = READY;
 
         return current_worker->tcb->wid;
@@ -178,7 +204,7 @@ int worker_yield() {
         }
 
         // - put the current worker thread back to a runqueue and choose the next worker thread to run
-        enqueue(current_worker);
+        enqueue(&run_q, current_worker);
        
         // - save context of this thread to its thread control block; switch from thread context to scheduler context
         worker_exit(current_worker);
@@ -298,10 +324,10 @@ static void schedule() {
                 in_main = false;
 
                 // FIFO
-                printQ();
+                printQ(&run_q);
                 if (run_q->front == NULL) {
                         printf("All finished.\n");
-                        destroyQ();
+                        destroyQ(&run_q);
                         exit(0);
                 }
 
@@ -315,12 +341,12 @@ static void schedule() {
                 if (join) {
                         if (join_worker->tcb->status == TERMINATED) {
                                 // if join_worker is done, remove it from the queue;
-                                removeFQ(join_worker->tcb->wid);
-                                printQ();
+                                removeFQ(&run_q, join_worker->tcb->wid);
+                                printQ(&run_q);
                                 join = false;
 
                                 // All done with the joinning thread - select next to run
-                                current_worker = dequeue(run_q);
+                                current_worker = dequeue(&run_q);
                                 current_worker->tcb->status = RUNNING;
                                 printf("running worker %d\n", current_worker->tcb->wid);
                                 swapcontext(&(scheduler->tcb->context), &(current_worker->tcb->context));
@@ -334,7 +360,7 @@ static void schedule() {
                 // no worker to wait for
                 else {
                         // select next worker in queue
-                        current_worker = dequeue(run_q);
+                        current_worker = dequeue(&run_q);
                         current_worker->tcb->status = RUNNING;
                         printf("running worker %d\n", current_worker->tcb->wid);
                        
@@ -350,8 +376,8 @@ static void schedule() {
 
                 // Only enqueue workers who are not done running
                 if (current_worker->tcb->status != TERMINATED && current_worker != join_worker) {
-                        enqueue(current_worker);
-                        //printQ();
+                        enqueue(&run_q, current_worker);
+                        //printQ(&run_q);
                         current_worker->tcb->status = READY;
                 }
 
@@ -404,68 +430,68 @@ static void sched_mlfq() {
 //------------------------------------------------------------------------------------------------------
 // Queue Functions
 
-void createQueue() {
+void createQueue(Queue** Q) {
 
-        run_q = (Queue *) malloc( sizeof(Queue) );
-        run_q->capacity = MAX_WORKERS;
-        run_q->front = run_q->rear = NULL;
+        (*Q) = (Queue *) malloc( sizeof(Queue) );
+        (*Q)->capacity = MAX_WORKERS;
+        (*Q)->front = (*Q)->rear = NULL;
        
 }
 
-void enqueue(wthread* worker) {
+void enqueue(Queue** Q, wthread* worker) {
 
-        if(numWorkers == run_q->capacity) {
+        if(numWorkers == (*Q)->capacity) {
                 perror("run_queue is Full\n");
                 exit(1);
         } else {
                 worker->next = NULL;
-                if (run_q->rear != NULL) {
-                        run_q->rear->next = worker;
+                if ((*Q)->rear != NULL) {
+                        (*Q)->rear->next = worker;
                 }
-                run_q->rear = worker;
-                if(run_q->front == NULL) {
-                        run_q->front = worker;  
+                (*Q)->rear = worker;
+                if((*Q)->front == NULL) {
+                        (*Q)->front = worker;  
                 }
         }
 }
 
-wthread* dequeue() {
+wthread* dequeue(Queue** Q) {
         
         wthread* curr = NULL;
 
-        if(run_q == NULL) {
+        if((*Q) == NULL) {
                 perror("No more worker to dequeue.\n");
                 exit(1);
         } else {
-                curr = run_q->front;
-                run_q->front = run_q->front->next;
+                curr = (*Q)->front;
+                (*Q)->front = (*Q)->front->next;
 
                 // In case the front becomes NULL
-                if (run_q->front == NULL){
-                        run_q->rear = NULL; // Also update the rear
+                if ((*Q)->front == NULL){
+                        (*Q)->rear = NULL; // Also update the rear
                 }
         }
         return curr;
 }
 
 // Remove a worker from the Q
-void removeFQ(worker_t worker) {
+void removeFQ(Queue** Q, worker_t worker) {
 
-        if (run_q->front == NULL) {
+        if ((*Q)->front == NULL) {
                 perror("Empty Queue;\n");
                 exit(1);
         }
 
         wthread* prev = NULL;
-        wthread* temp = run_q->front;
+        wthread* temp = (*Q)->front;
 
         while (temp != NULL){
                 if (temp->tcb->wid == worker) {
-                        if (temp == run_q->front) {
-                                run_q->front = run_q->front->next;
-                        } else if (temp == run_q->rear) {
+                        if (temp == (*Q)->front) {
+                                (*Q)->front = (*Q)->front->next;
+                        } else if (temp == (*Q)->rear) {
                                 prev->next = NULL;
-                                run_q->rear = prev;
+                                (*Q)->rear = prev;
                         } else {
                                 prev->next = temp->next;
                         }
@@ -478,13 +504,13 @@ void removeFQ(worker_t worker) {
         // free(temp);
 }
 
-void printQ(){
-        if (run_q->front == NULL) {
+void printQ(Queue** Q){
+        if ((*Q)->front == NULL) {
                 printf("Empty Queue;\n");
                 return;
         }
 
-        wthread* temp = run_q->front;
+        wthread* temp = (*Q)->front;
 
         while (temp != NULL) {
                 printf("worker-id: %d; Status: %d\n", temp->tcb->wid, temp->tcb->status);
@@ -493,8 +519,8 @@ void printQ(){
 
 }
 
-void destroyQ() {
-        wthread* curr = run_q->front;
+void destroyQ(Queue** Q) {
+        wthread* curr = (*Q)->front;
         while (curr != NULL) {
                 wthread* temp = curr->next;
                 free(curr->tcb->stack);
@@ -502,7 +528,7 @@ void destroyQ() {
                 free(curr);
                 curr = temp;
         }
-        free(run_q);
+        free((*Q));
 }
 
 
