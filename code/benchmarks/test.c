@@ -102,11 +102,13 @@ int main(int argc, char **argv) {
 
     // int retj1 = worker_join(ret2, NULL);
 
-    // // int retj2 = worker_join(ret3, NULL);
+    // int retj2 = worker_join(ret3, NULL);
 
     // while (1) {
-        
+    //     sleep(2);
+    //     printf("AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n");
     // }
+
 
     // ---------------------------------------------------------------------------------
     // MUTEX TESTING
@@ -122,8 +124,10 @@ int main(int argc, char **argv) {
     worker_t ret3 = worker_create(&wid3, NULL, &resource, 3);
 
     while (1) {
-        
+        sleep(2);
+        printf("AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n");
     }
+    worker_mutex_destroy(&mutex);
 
 	return 0;
 }
