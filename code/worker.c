@@ -24,6 +24,7 @@ bool first_invoke = true;
 
 Queue* run_q;
 Queue* join_q;
+Queue* lock_q;
 bool join;
 unsigned int join_count = 0;
 
