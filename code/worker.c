@@ -27,6 +27,7 @@ Queue* join_q;
 Queue* lock_q;
 bool join;
 unsigned int join_count = 0;
+unsigned int lid_count = 0;
 
 void *(*func)(void*);
 void * arg;
@@ -273,6 +274,20 @@ int worker_mutex_init(worker_mutex_t *mutex, const pthread_mutexattr_t *mutexatt
 
         //- initialize data structures for this mutex
 
+        if (mutexattr == NULL) {
+                //PTHREAD_MUTEX_DEFAULT : permits a thread to lock many times;
+        }
+
+        if ((mutex = malloc(sizeof(worker_mutex_t))) == NULL) {
+                perror("Unable to malloc for mutex.\n");
+                return -1;
+        }
+
+        createQueue(&lock_q);
+        mutex->lid = lid_count++;
+        mutex->lock = 0;
+        mutex->count = 0;
+
         return 0;
 };
 
@@ -286,7 +301,25 @@ int worker_mutex_lock(worker_mutex_t *mutex) {
         // - if acquiring mutex fails, push current thread into block list and
         // context switch to the scheduler thread
 
-        // YOUR CODE HERE
+        if (mutex->owner == NULL) {
+                mutex->owner = current_worker;
+                mutex->count++;
+                printf("mutex count: %d;\n", mutex->count);
+        }
+
+        // wait for the mutex to become avaliable again
+        while (atomic_flag_test_and_set(&(mutex->lock)) == 1); // spin-wait
+
+        // enter critical section
+        printf("enter critical section\n");
+
+        if (!atomic_is_lock_free(&mutex)) { // acquiring mutex failed
+                printf("Acquiring Mutex Failed\n");
+                // current_worker->tcb->status = BLOCKED;
+                // enqueue(lock_q);
+                // swapcontext(&(current_worker->tcb->context), &(scheduler->tcb->context));
+        }
+        
         return 0;
 };
 
@@ -298,7 +331,9 @@ int worker_mutex_unlock(worker_mutex_t *mutex) {
         // - put threads in block list to run queue 
         // so that they could compete for mutex later.
 
-        // YOUR CODE HERE
+        mutex->count--;
+        mutex->lock = 0;  // the mutex is availiable again
+
         return 0;
 };
 
@@ -306,7 +341,10 @@ int worker_mutex_unlock(worker_mutex_t *mutex) {
 
 /* destroy the mutex */
 int worker_mutex_destroy(worker_mutex_t *mutex) {
+
         // - de-allocate dynamic memory created in worker_mutex_init
+        free(mutex);
+        destroyQ(&lock_q);
 
         return 0;
 };

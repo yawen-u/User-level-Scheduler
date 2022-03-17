@@ -25,6 +25,7 @@
 #include <ucontext.h>
 #include <stdbool.h>
 #include <signal.h>
+#include <stdatomic.h>
 
 //------------------------------------------------------------------------------------------------------
 
@@ -39,23 +40,22 @@ typedef struct TCB {
 	int priority;// thread priority
 } tcb; 
 
-/* mutex struct definition */
-typedef struct worker_mutex_t {
-	/* add something here */
-	unsigned int lid;
-	wthread* owner;
-	bool is_active;
-} worker_mutex_t;
-
 /* define your data structures here: */
 // Feel free to add your own auxiliary data structures (linked list or queue etc...)
 typedef struct wthread {
 	tcb* tcb; // Worker Thread TCB
-	worker_mutex_t* wmutex; // Worker Mutex
 	struct wthread* next;
 	void *(*function)(void*);
 	void * arg;
 } wthread;
+
+/* mutex struct definition */
+typedef struct worker_mutex_t {
+	unsigned int lid;
+	wthread* owner;
+	volatile int lock;
+	int count;
+} worker_mutex_t;
 
 typedef struct Queue {
 	int capacity;
