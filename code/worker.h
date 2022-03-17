@@ -39,6 +39,15 @@ typedef struct TCB {
 	int priority;// thread priority
 } tcb; 
 
+/* define your data structures here: */
+// Feel free to add your own auxiliary data structures (linked list or queue etc...)
+typedef struct wthread {
+	tcb* tcb; // Worker Thread TCB
+	struct wthread* next;
+	void *(*function)(void*);
+	void * arg;
+} wthread;
+
 /* mutex struct definition */
 typedef struct worker_mutex_t {
 	/* add something here */
@@ -47,15 +56,6 @@ typedef struct worker_mutex_t {
 	bool is_active;
 } worker_mutex_t;
 
-/* define your data structures here: */
-// Feel free to add your own auxiliary data structures (linked list or queue etc...)
-typedef struct wthread {
-	tcb* tcb; // Worker Thread TCB
-	worker_mutex_t* wmutex; // Worker Mutex
-	struct wthread* next;
-	void *(*function)(void*);
-	void * arg;
-} wthread;
 
 typedef struct Queue {
 	int capacity;

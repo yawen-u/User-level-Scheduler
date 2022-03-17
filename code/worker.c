@@ -20,11 +20,11 @@
 
 int numWorkers = 0;
 bool first_invoke = true;
-
+bool first_run = true;
 
 Queue* run_q;
 Queue* join_q;
-Queue* lock_q;
+
 bool join;
 unsigned int join_count = 0;
 
@@ -32,12 +32,16 @@ void *(*func)(void*);
 void * arg;
 
 ucontext_t main_context;
-bool in_main = true;
 
-wthread* main_worker;
 wthread* scheduler;
 wthread* current_worker;
+wthread* prev_worker;
 wthread* join_worker;
+
+
+wthread* special_case;
+bool update_special = true;
+bool done = false;
 
 struct itimerval it_val;        /* for setting itimer */
 unsigned int timeout = 0;
@@ -61,23 +65,11 @@ void initialize(){
 
 void init_main_worker(){
 
-        if( (main_worker = malloc(sizeof(wthread)) ) == NULL ) {
-                printf("Could Not allocate Memory to wthread\n"); 
-                exit(1);
-        }
-        if( (main_worker->tcb = malloc(sizeof(tcb)) ) == NULL ) {
-                printf("Could Not allocate Memory to tcb\n"); 
-                exit(1);
-        }
-
         // - create and initialize the context of this worker thread
-        if (getcontext( &(main_worker->tcb->context) ) < 0){
+        if (getcontext( &(main_context) ) < 0){
                 perror("getcontext");
                 exit(1);
         }
-        main_worker->tcb->wid = 777;
-        
-        main_worker->tcb->status = BLOCKED;
 
         return;
 }
@@ -110,11 +102,10 @@ void init_scheduler() {
                 perror("Failed to allocate stack");
                 exit(1);
         }
-        makecontext( &(scheduler->tcb->context), NULL, 0);
+        makecontext( &(scheduler->tcb->context), (void *)&schedule, 0);
         // setcontext( &(scheduler->tcb->context) );
         scheduler->tcb->status = RUNNING;
 
-        printf("Scheduler context made;\n");
         return;
 }
 
@@ -252,7 +243,7 @@ int worker_join(worker_t thread, void **value_ptr) {
                         join_count++; 
                         join_worker = ptr;
                         current_worker = join_worker;
-                        swapcontext(&(main_worker->tcb->context), &(join_worker->tcb->context));
+                        swapcontext(&(scheduler->tcb->context), &(join_worker->tcb->context));
 
                         return 0;
                 }
@@ -320,91 +311,110 @@ static void schedule() {
         // should be contexted switched from a thread context to this 
         // schedule() function
 
-        printf("Timer went off - Switch to scheduler context.\n");
+        if (run_q->front == NULL && done) {
 
-        // Check first whether we are in the main context or running a worker
-        if (in_main){
+                destroyQ(&run_q);
+                exit(0);
+        }
 
-                printf("In main: %d\n", current_worker->tcb->wid);
-                in_main = false;
+        // First run case
+        if (first_run){
 
-                // FIFO
-                printQ(&run_q);
-                if (run_q->front == NULL) {
-                        printf("All finished.\n");
-                        destroyQ(&run_q);
-                        exit(0);
+                first_run = false;
+                prev_worker = NULL;
+                current_worker = dequeue(&run_q);
+                swapcontext(&(scheduler->tcb->context), &(current_worker->tcb->context));
+        }
+
+        // General case
+        prev_worker = current_worker;
+        current_worker = dequeue(&run_q);
+
+
+        // Case at the end
+        if (current_worker == NULL){
+
+                if (update_special){
+
+                        update_special = false;
+                        special_case = prev_worker;
+                }
+
+                if (special_case->tcb->status == TERMINATED){
+
+                        done = true;
+                        numWorkers--;
+                        swapcontext(&(special_case->tcb->context), &(scheduler->tcb->context));
+                }
+
+                swapcontext(&(special_case->tcb->context), &(special_case->tcb->context));
+        }
+
+        // Resume general case
+        else{
+
+                // Only enqueue workers who are not done running
+                if (prev_worker->tcb->status != TERMINATED && prev_worker != join_worker) {
+                        enqueue(&run_q, prev_worker);
+                        prev_worker->tcb->status = READY;
                 }
 
                 // if current worker is done running, exit the terminated worker then run the next worker in queue
-                if (current_worker->tcb->status == TERMINATED) {
-                        printf("exit worker %d; ", current_worker->tcb->wid);
+                else if (prev_worker->tcb->status == TERMINATED){
+
                         numWorkers--;
-                } 
-
-                // if there is a worker to join
-                if (join) {
-                        if (join_worker->tcb->status == TERMINATED) {
-                                // if join_worker is done, remove it from the queue;
-                                removeFQ(&run_q, join_worker->tcb->wid);
-                                join_count--;
-                                printQ(&run_q);
-                                join = false;
-
-                                // All done with the joinning thread - select next to run
-                                current_worker = dequeue(&run_q);
-
-                                // Check if BLOCKED
-                                while (current_worker->tcb->status == BLOCKED){
-
-                                        enqueue(&run_q, current_worker);
-                                        current_worker = dequeue(&run_q);
-                                }
-
-                                current_worker->tcb->status = RUNNING;
-                                printf("running worker %d\n", current_worker->tcb->wid);
-                                swapcontext(&(main_worker->tcb->context), &(current_worker->tcb->context));
-
-                        } else {
-                                // else - keep wait for it to terminate
-                                swapcontext(&(main_worker->tcb->context), &(join_worker->tcb->context));
-                        }
                 }
+
+
+                swapcontext(&(prev_worker->tcb->context), &(current_worker->tcb->context));
+        }
+
+
+        
+
+
+        // if (join) {
                 
-                // no worker to wait for
-                else {
-                        // select next worker in queue
-                        current_worker = dequeue(&run_q);
+        //         if (join_worker->tcb->status == TERMINATED) {
 
-                        // Check if BLOCKED
-                        while (current_worker->tcb->status == BLOCKED){
+        //                 // if join_worker is done, remove it from the queue;
+        //                 removeFQ(&run_q, join_worker->tcb->wid);
+        //                 join_count--;
+        //                 printQ(&run_q);
+        //                 join = false;
 
-                                enqueue(&run_q, current_worker);
-                                current_worker = dequeue(&run_q);
-                        }
+        //                 // All done with the joinning thread - select next to run
+        //                 current_worker = dequeue(&run_q);
 
-                        current_worker->tcb->status = RUNNING;
-                        printf("running worker %d\n", current_worker->tcb->wid);
-                       
-                        swapcontext(&(main_worker->tcb->context), &(current_worker->tcb->context));
-                }
+        //                 // Check if BLOCKED
+        //                 while (current_worker->tcb->status == BLOCKED){
 
-        }
+        //                         enqueue(&run_q, current_worker);
+        //                         current_worker = dequeue(&run_q);
+        //                 }
 
-        // In worker thread - swap back to scheduler context
-        else { 
-                printf("In worker: %d \n", current_worker->tcb->wid);
-                in_main = true;
+        //                 current_worker->tcb->status = RUNNING;
+        //                 printf("running worker %d\n", current_worker->tcb->wid);
+        //                 swapcontext(&(scheduler->tcb->context), &(current_worker->tcb->context));
+        //         } 
+        //         else {
 
-                // Only enqueue workers who are not done running
-                if (current_worker->tcb->status != TERMINATED && current_worker != join_worker) {
-                        enqueue(&run_q, current_worker);
-                        //printQ(&run_q);
-                        current_worker->tcb->status = READY;
-                }
+        //                 // else - keep wait for it to terminate
+        //                 swapcontext(&(scheduler->tcb->context), &(join_worker->tcb->context));
+        //         }
+        // }
+                
 
-                swapcontext(&(current_worker->tcb->context), &(main_worker->tcb->context));
-        }
+
+
+                // // Check if BLOCKED
+                // while (current_worker->tcb->status == BLOCKED){
+
+                //         enqueue(&run_q, current_worker);
+                //         current_worker = dequeue(&run_q);
+                // }
+ 
+
        
 
        /*free(scheduler->tcb->stack);
@@ -481,9 +491,8 @@ wthread* dequeue(Queue** Q) {
         
         wthread* curr = NULL;
 
-        if((*Q) == NULL) {
-                perror("No more worker to dequeue.\n");
-                exit(1);
+        if((*Q) == NULL || (*Q)->front == NULL) {
+                return NULL;
         } else {
                 curr = (*Q)->front;
                 (*Q)->front = (*Q)->front->next;
@@ -559,17 +568,13 @@ void destroyQ(Queue** Q) {
 
 void execute(wthread* worker){
 
-        printf("ENTER EXECUTE.\n");
-
-        in_main = false;
-
         func = worker->function;
         arg = worker->arg;
         func(arg);
 
-        printf("function done;\n");
 
         worker->tcb->status = TERMINATED;
 
-        swapcontext( &(worker->tcb->context), &(main_worker->tcb->context));
+        //swapcontext( &(worker->tcb->context), &(scheduler->tcb->context));
+        schedule();
 }

@@ -75,8 +75,8 @@ int main(int argc, char **argv) {
 	for (i = 0; i < thread_num; ++i)
 		pthread_create(&thread[i], NULL, &vector_multiply, &counter[i]);
 
-	for (i = 0; i < thread_num; ++i)
-		pthread_join(thread[i], NULL);
+	// for (i = 0; i < thread_num; ++i)
+	// 	pthread_join(thread[i], NULL);
 
 	clock_gettime(CLOCK_REALTIME, &end);
         printf("running time: %lu micro-seconds\n", 
