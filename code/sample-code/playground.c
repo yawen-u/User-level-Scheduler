@@ -24,13 +24,13 @@ void execute(void *(*function)(void*), void * arg, ucontext_t* current_context);
 
 void*  f1withparam(){
 	
-	for (int i=0; i < 10000; i++){
+	for (int i=0; i < 5000; i++){
 		printf("Thread 1:%d\n", i);
 	}
 }
 
 void*  f2withparam(){
-	for (int i=10000; i < 20000; i++){
+	for (int i=5000; i < 10000; i++){
 		printf("Thread 2:%d\n", i);
 	}
 }
@@ -113,12 +113,14 @@ int main(int argc, char **argv) {
 	makecontext(&nctx,(void *)&execute,3, &f2withparam, NULL, &nctx);
 
 
-  	while (1) {
+	DoStuff();
 
-  		if (count == 2){
-  			exit(0);
-  		}
-  	}
+  	// while (1) {
+
+  	// 	if (count == 2){
+  	// 		exit(0);
+  	// 	}
+  	// }
 
   	return 0;
 }

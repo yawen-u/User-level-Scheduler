@@ -100,21 +100,15 @@ int main(int argc, char **argv) {
     worker_t wid4;
     worker_t ret4 = worker_create(&wid4, NULL, &f4withparam, NULL);
 
-    // int retj1 = worker_join(ret2, NULL);
+    int retj1 = worker_join(ret2, NULL);
 
-    // int retj2 = worker_join(ret3, NULL);
-
-    // while (1) {
-    //     sleep(2);
-    //     printf("AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n");
-    // }
 
     printf("AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n");
     printf("AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n");
     printf("AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n");
     printf("AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n");
     printf("AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n");
-    
+
 
 
     // ---------------------------------------------------------------------------------

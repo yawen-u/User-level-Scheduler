@@ -121,7 +121,7 @@ void init_timer() {
     }
 
     it_val.it_value.tv_sec =     0;
-    it_val.it_value.tv_usec =    150;       
+    it_val.it_value.tv_usec =    1000;       
     it_val.it_interval = it_val.it_value;
 
     if (setitimer(ITIMER_REAL, &it_val, NULL) == -1) {
@@ -234,8 +234,7 @@ void worker_exit(void *value_ptr) {
 /* Wait for thread termination */
 int worker_join(worker_t thread, void **value_ptr) {
 
-        // printf("ENTER WORKER JOIN:\n");
-        
+        swapcontext(&main_context, &(scheduler->tcb->context) );        
         // // - wait for a specific thread to terminate
         // // - check if the thread already existed
         // join = false;
@@ -360,6 +359,7 @@ static void schedule() {
                 numWorkers--;
                 destroyQ(&run_q);
 
+                setcontext(&main_context);
                 return;
         }
 
@@ -399,6 +399,7 @@ static void schedule() {
                         numWorkers--;
                         destroyQ(&run_q);
 
+                        setcontext(&main_context);
                         return;
                 }
         }
