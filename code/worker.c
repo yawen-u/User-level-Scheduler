@@ -380,6 +380,7 @@ static void schedule() {
                 return;
         }
 
+
         // - every time a timer interrupt occurs, your worker thread library 
         // should be contexted switched from a thread context to this 
         // schedule() function
@@ -389,6 +390,7 @@ static void schedule() {
                 if (run_q == NULL){
                         return;
                 }
+                printf("Yo\n");
 
                 exit_case_3 = true;
                 numWorkers--;
@@ -435,7 +437,7 @@ static void schedule() {
                         exit_case_1 = true;
                         destroyQ(&run_q);
                         setcontext(&main_context);
-                        exit(0);
+                        return;
                 }
                 
         }
