@@ -28,6 +28,7 @@ Queue* join_q;
 Queue* lock_q;
 
 bool join;
+bool first_join = true;
 unsigned int join_count = 0;
 unsigned int lid_count = 0;
 
@@ -45,6 +46,9 @@ wthread* join_worker;
 wthread* special_case;
 bool update_special = true;
 bool done = false;
+bool exit_case_1 = false;
+bool exit_case_2 = false;
+bool exit_case_3 = false;
 
 struct itimerval it_val;        /* for setting itimer */
 unsigned int timeout = 0;
@@ -234,7 +238,17 @@ void worker_exit(void *value_ptr) {
 /* Wait for thread termination */
 int worker_join(worker_t thread, void **value_ptr) {
 
-        swapcontext(&main_context, &(scheduler->tcb->context) );        
+        if (first_join){
+
+                first_join = false;
+                swapcontext(&main_context, &(scheduler->tcb->context) );
+        }
+
+        else{
+                done = true;
+        }
+
+                
         // // - wait for a specific thread to terminate
         // // - check if the thread already existed
         // join = false;
@@ -350,13 +364,35 @@ int worker_mutex_destroy(worker_mutex_t *mutex) {
 /* scheduler */
 static void schedule() {
 
+        if (done){
+                return;
+        }
+
+        if (exit_case_1){
+                return;
+        }
+
+        if (exit_case_2){
+                return;
+        }
+
+        if (exit_case_3){
+                return;
+        }
+
         // - every time a timer interrupt occurs, your worker thread library 
         // should be contexted switched from a thread context to this 
         // schedule() function
 
         if (current_worker->tcb->status == TERMINATED && run_q->front == NULL) {
-                printf("LAST WORKER TERMINATED.\n");
+
+                if (run_q == NULL){
+                        return;
+                }
+
+                exit_case_3 = true;
                 numWorkers--;
+
                 destroyQ(&run_q);
 
                 setcontext(&main_context);
@@ -378,31 +414,56 @@ static void schedule() {
         // printf("prev worker : %d; current worker : %d\n", prev_worker->tcb->wid, current_worker->tcb->wid);
        
         // Only enqueue workers who are not done running
-        if (prev_worker->tcb->status != TERMINATED && prev_worker != join_worker) {
+        if (prev_worker->tcb->status != TERMINATED && prev_worker != join_worker && current_worker != NULL) {
                 enqueue(&run_q, prev_worker);
                 prev_worker->tcb->status = READY;
         }
 
-        // if current worker is done running, exit the terminated worker then run the next worker in queue
-        else if (prev_worker->tcb->status == TERMINATED){
-                printf("worker %d exited\n", prev_worker->tcb->wid);
-                numWorkers--;
-        }
-
-
-        if (current_worker == NULL){
+        else if (prev_worker->tcb->status != TERMINATED && prev_worker != join_worker && current_worker == NULL) {
+                enqueue(&run_q, prev_worker);
+                prev_worker->tcb->status = READY;
 
                 current_worker = prev_worker;
-
-                if (current_worker->tcb->status == TERMINATED && run_q->front == NULL) {
-                        printf("LAST WORKER TERMINATED.\n");
-                        numWorkers--;
-                        destroyQ(&run_q);
-
-                        setcontext(&main_context);
-                        return;
-                }
         }
+
+        // if current worker is done running, exit the terminated worker then run the next worker in queue
+        else if (prev_worker->tcb->status == TERMINATED && current_worker != NULL){
+                numWorkers--;
+
+                if (prev_worker == current_worker){
+
+                        exit_case_1 = true;
+                        destroyQ(&run_q);
+                        setcontext(&main_context);
+                        exit(0);
+                }
+                
+        }
+
+        else if (prev_worker->tcb->status == TERMINATED && current_worker == NULL){
+
+                exit_case_2 = true;
+                numWorkers--;
+                destroyQ(&run_q);
+
+                setcontext(&main_context);
+                return;
+
+        }
+
+        // if (current_worker == NULL){
+
+        //         current_worker = prev_worker;
+
+        //         if (current_worker->tcb->status == TERMINATED && run_q->front == NULL) {
+        //                 printf("LAST WORKER TERMINATED.\n");
+        //                 numWorkers--;
+        //                 destroyQ(&run_q);
+
+
+        //                 return;
+        //         }
+        // }
 
         swapcontext(&(prev_worker->tcb->context), &(current_worker->tcb->context));
   
