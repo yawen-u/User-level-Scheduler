@@ -95,7 +95,7 @@ void init_scheduler() {
                 exit(1);
         }
         scheduler->tcb->wid = numWorkers++;
-        scheduler->tcb->context.uc_link = NULL;
+        scheduler->tcb->context.uc_link = &main_context;
         scheduler->tcb->stack = malloc(STACK_SIZE);
         scheduler->tcb->context.uc_stack.ss_sp = scheduler->tcb->stack;
         scheduler->tcb->context.uc_stack.ss_size = STACK_SIZE;
@@ -120,8 +120,8 @@ void init_timer() {
         exit(1);
     }
 
-    it_val.it_value.tv_sec =     INTERVAL/1000;
-    it_val.it_value.tv_usec =    (INTERVAL*1000) % 1000000;       
+    it_val.it_value.tv_sec =     0;
+    it_val.it_value.tv_usec =    150;       
     it_val.it_interval = it_val.it_value;
 
     if (setitimer(ITIMER_REAL, &it_val, NULL) == -1) {
@@ -234,28 +234,28 @@ void worker_exit(void *value_ptr) {
 /* Wait for thread termination */
 int worker_join(worker_t thread, void **value_ptr) {
 
-        printf("ENTER WORKER JOIN:\n");
+        // printf("ENTER WORKER JOIN:\n");
         
-        // - wait for a specific thread to terminate
-        // - check if the thread already existed
-        join = false;
-        wthread* ptr = run_q->front;
-        while (ptr != NULL) {
-                if (ptr->tcb->wid == thread && ptr->tcb->status != TERMINATED) { // thread found
-                        join = true;
-                        join_count++; 
-                        join_worker = ptr;
-                        current_worker = join_worker;
-                        swapcontext(&(scheduler->tcb->context), &(join_worker->tcb->context));
+        // // - wait for a specific thread to terminate
+        // // - check if the thread already existed
+        // join = false;
+        // wthread* ptr = run_q->front;
+        // while (ptr != NULL) {
+        //         if (ptr->tcb->wid == thread && ptr->tcb->status != TERMINATED) { // thread found
+        //                 join = true;
+        //                 join_count++; 
+        //                 join_worker = ptr;
+        //                 current_worker = join_worker;
+        //                 swapcontext(&(scheduler->tcb->context), &(join_worker->tcb->context));
 
-                        return 0;
-                }
-                ptr = ptr->next;
-        }
+        //                 return 0;
+        //         }
+        //         ptr = ptr->next;
+        // }
 
-        if (!join) {
-                return 1;
-        }
+        // if (!join) {
+        //         return 1;
+        // }
 
         return 0;
 };
@@ -307,7 +307,6 @@ int worker_mutex_lock(worker_mutex_t *mutex) {
         } // spin-wait
 
         // enter critical section
-        printf("enter critical section\n");
 
         // if (mutex == NULL) { // acquiring mutex failed
         //         printf("Acquiring Mutex Failed\n");
@@ -360,7 +359,8 @@ static void schedule() {
                 printf("LAST WORKER TERMINATED.\n");
                 numWorkers--;
                 destroyQ(&run_q);
-                exit(0);
+
+                return;
         }
 
         // First run case
@@ -387,6 +387,20 @@ static void schedule() {
         else if (prev_worker->tcb->status == TERMINATED){
                 printf("worker %d exited\n", prev_worker->tcb->wid);
                 numWorkers--;
+        }
+
+
+        if (current_worker == NULL){
+
+                current_worker = prev_worker;
+
+                if (current_worker->tcb->status == TERMINATED && run_q->front == NULL) {
+                        printf("LAST WORKER TERMINATED.\n");
+                        numWorkers--;
+                        destroyQ(&run_q);
+
+                        return;
+                }
         }
 
         swapcontext(&(prev_worker->tcb->context), &(current_worker->tcb->context));
