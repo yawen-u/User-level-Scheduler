@@ -15,7 +15,7 @@ void squares();
  * This will not be graded.
  */
 
-worker_mutex_t mutex;
+worker_mutex_t* mutex;
 int mail = 0;
 
 void*  resource(int num){
@@ -88,47 +88,48 @@ int main(int argc, char **argv) {
    
     // WORKER_CREATE TESTING
     
-    // worker_t wid1;
-    // worker_t ret1 = worker_create(&wid1, NULL, &f1withparam, NULL);
+    worker_t wid1;
+    worker_t ret1 = worker_create(&wid1, NULL, &f1withparam, NULL);
 
-    // worker_t wid2;
-    // worker_t ret2 = worker_create(&wid2, NULL, &f2withparam, NULL);
+    worker_t wid2;
+    worker_t ret2 = worker_create(&wid2, NULL, &f2withparam, NULL);
 
-    // worker_t wid3;
-    // worker_t ret3 = worker_create(&wid3, NULL, &f3withparam, NULL);
+    worker_t wid3;
+    worker_t ret3 = worker_create(&wid3, NULL, &f3withparam, NULL);
 
-    // worker_t wid4;
-    // worker_t ret4 = worker_create(&wid4, NULL, &f4withparam, NULL);
+    worker_t wid4;
+    worker_t ret4 = worker_create(&wid4, NULL, &f4withparam, NULL);
 
     // int retj1 = worker_join(ret2, NULL);
 
     // int retj2 = worker_join(ret3, NULL);
 
-    // while (1) {
-    //     sleep(2);
-    //     printf("AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n");
-    // }
+    while (1) {
+        sleep(2);
+        printf("AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n");
+    }
 
 
     // ---------------------------------------------------------------------------------
     // MUTEX TESTING
     
-    worker_mutex_init(&mutex, NULL);
-    worker_t wid1;
-    worker_t ret1 = worker_create(&wid1, NULL, &resource, 1);
+    // worker_mutex_init(&mutex, NULL);
+    // worker_t wid1;
+    // worker_t ret1 = worker_create(&wid1, NULL, &resource, 1);
 
-    worker_t wid2;
-    worker_t ret2 = worker_create(&wid2, NULL, &resource, 2);
+    // worker_t wid2;
+    // worker_t ret2 = worker_create(&wid2, NULL, &resource, 2);
 
-    worker_t wid3;
-    worker_t ret3 = worker_create(&wid3, NULL, &resource, 3);
+    // worker_t wid3;
+    // worker_t ret3 = worker_create(&wid3, NULL, &resource, 3);
+    // worker_mutex_destroy(&mutex);
 
-    while (1) {
-        sleep(2);
-        printf("AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n");
-    }
-    worker_mutex_destroy(&mutex);
 
+    // while (1) {
+    //     sleep(2);
+    //     printf("AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n");
+    // }
+    
 	return 0;
 }
 

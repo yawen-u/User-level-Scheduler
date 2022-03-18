@@ -21,6 +21,7 @@
 int numWorkers = 0;
 bool first_invoke = true;
 bool first_run = true;
+bool pato = true;
 
 Queue* run_q;
 Queue* join_q;
@@ -300,17 +301,22 @@ int worker_mutex_lock(worker_mutex_t *mutex) {
         }
 
         // wait for the mutex to become avaliable again
-        while (atomic_flag_test_and_set(&(mutex->lock)) == 1); // spin-wait
+        while (atomic_flag_test_and_set(&(mutex->lock)) == 1) {
+                // current_worker->tcb->status = BLOCKED;
+                // printf("worker is waiting..\n");
+        } // spin-wait
 
         // enter critical section
         printf("enter critical section\n");
 
-        if (!atomic_is_lock_free(&mutex)) { // acquiring mutex failed
-                printf("Acquiring Mutex Failed\n");
-                // current_worker->tcb->status = BLOCKED;
-                // enqueue(lock_q);
-                // swapcontext(&(current_worker->tcb->context), &(scheduler->tcb->context));
-        }
+        // if (mutex == NULL) { // acquiring mutex failed
+        //         printf("Acquiring Mutex Failed\n");
+        //         current_worker->tcb->status = BLOCKED;
+        //         // enqueue(lock_q);
+        //         schedule();
+        // }
+
+        schedule();
         
         return 0;
 };
@@ -350,8 +356,9 @@ static void schedule() {
         // should be contexted switched from a thread context to this 
         // schedule() function
 
-        if (run_q->front == NULL && done) {
-
+        if (current_worker->tcb->status == TERMINATED && run_q->front == NULL) {
+                printf("LAST WORKER TERMINATED.\n");
+                numWorkers--;
                 destroyQ(&run_q);
                 exit(0);
         }
@@ -368,48 +375,22 @@ static void schedule() {
         // General case
         prev_worker = current_worker;
         current_worker = dequeue(&run_q);
-
-
-        // Case at the end
-        if (current_worker == NULL){
-
-                if (update_special){
-
-                        update_special = false;
-                        special_case = prev_worker;
-                }
-
-                if (special_case->tcb->status == TERMINATED){
-
-                        done = true;
-                        numWorkers--;
-                        swapcontext(&(special_case->tcb->context), &(scheduler->tcb->context));
-                }
-
-                swapcontext(&(special_case->tcb->context), &(special_case->tcb->context));
+        // printf("prev worker : %d; current worker : %d\n", prev_worker->tcb->wid, current_worker->tcb->wid);
+       
+        // Only enqueue workers who are not done running
+        if (prev_worker->tcb->status != TERMINATED && prev_worker != join_worker) {
+                enqueue(&run_q, prev_worker);
+                prev_worker->tcb->status = READY;
         }
 
-        // Resume general case
-        else{
-
-                // Only enqueue workers who are not done running
-                if (prev_worker->tcb->status != TERMINATED && prev_worker != join_worker) {
-                        enqueue(&run_q, prev_worker);
-                        prev_worker->tcb->status = READY;
-                }
-
-                // if current worker is done running, exit the terminated worker then run the next worker in queue
-                else if (prev_worker->tcb->status == TERMINATED){
-
-                        numWorkers--;
-                }
-
-
-                swapcontext(&(prev_worker->tcb->context), &(current_worker->tcb->context));
+        // if current worker is done running, exit the terminated worker then run the next worker in queue
+        else if (prev_worker->tcb->status == TERMINATED){
+                printf("worker %d exited\n", prev_worker->tcb->wid);
+                numWorkers--;
         }
 
-
-        
+        swapcontext(&(prev_worker->tcb->context), &(current_worker->tcb->context));
+  
 
 
         // if (join) {
@@ -614,6 +595,7 @@ void execute(wthread* worker){
 
         worker->tcb->status = TERMINATED;
 
-        //swapcontext( &(worker->tcb->context), &(scheduler->tcb->context));
-        schedule();
+        if (run_q->front != NULL) {
+                schedule();
+        }
 }
