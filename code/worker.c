@@ -199,18 +199,12 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 int worker_yield() {
         
         // - change worker thread's state from Running to Ready
-        if (current_worker->tcb->status == RUNNING) {
-                current_worker->tcb->status = READY;
-        } else {
-                printf("YIELDING ERROR: current thread is not running\n");
-        }
+        current_worker->tcb->status = READY;
 
         // - put the current worker thread back to a runqueue and choose the next worker thread to run
-        enqueue(&run_q, current_worker);
        
         // - save context of this thread to its thread control block; switch from thread context to scheduler context
-        worker_exit(current_worker);
-        swapcontext( &(current_worker->tcb->context), &(scheduler->tcb->context) ); 
+        schedule(); 
         
         return 0;
 };
@@ -221,12 +215,15 @@ int worker_yield() {
 void worker_exit(void *value_ptr) {
 
         // - de-allocate any dynamic memory created when starting this thread
-      
         if (value_ptr != NULL){
-                printf("exiting worker\n");
-                // free(temp->tcb->stack);
-                // free(temp->tcb);
-                // free(temp);
+
+                current_worker->tcb->status = TERMINATED;
+                schedule();
+        }
+
+        else{
+                current_worker->tcb->status = TERMINATED;
+                schedule();
         }
 
         return;
@@ -319,15 +316,6 @@ int worker_mutex_lock(worker_mutex_t *mutex) {
                 // printf("worker is waiting..\n");
         } // spin-wait
 
-        // enter critical section
-
-        // if (mutex == NULL) { // acquiring mutex failed
-        //         printf("Acquiring Mutex Failed\n");
-        //         current_worker->tcb->status = BLOCKED;
-        //         // enqueue(lock_q);
-        //         schedule();
-        // }
-
         schedule();
         
         return 0;
@@ -354,8 +342,7 @@ int worker_mutex_destroy(worker_mutex_t *mutex) {
 
         // - de-allocate dynamic memory created in worker_mutex_init
         free(mutex);
-        // destroyQ(&lock_q);
-
+        
         return 0;
 };
 
@@ -390,7 +377,6 @@ static void schedule() {
                 if (run_q == NULL){
                         return;
                 }
-                printf("Yo\n");
 
                 exit_case_3 = true;
                 numWorkers--;

@@ -44,6 +44,7 @@ void*  f2withparam(){
 
 void*  f3withparam(){
     for (int i=10000; i < 15000; i++){
+
         printf("Thread 3:%d\n", i);
     }
 }
@@ -88,43 +89,45 @@ int main(int argc, char **argv) {
    
     // WORKER_CREATE TESTING
     
-    worker_t wid1;
-    worker_t ret1 = worker_create(&wid1, NULL, &f1withparam, NULL);
+    // worker_t wid1;
+    // worker_t ret1 = worker_create(&wid1, NULL, &f1withparam, NULL);
 
-    worker_t wid2;
-    worker_t ret2 = worker_create(&wid2, NULL, &f2withparam, NULL);
+    // worker_t wid2;
+    // worker_t ret2 = worker_create(&wid2, NULL, &f2withparam, NULL);
 
-    worker_t wid3;
-    worker_t ret3 = worker_create(&wid3, NULL, &f3withparam, NULL);
+    // worker_t wid3;
+    // worker_t ret3 = worker_create(&wid3, NULL, &f3withparam, NULL);
 
-    worker_t wid4;
-    worker_t ret4 = worker_create(&wid4, NULL, &f4withparam, NULL);
+    // worker_t wid4;
+    // worker_t ret4 = worker_create(&wid4, NULL, &f4withparam, NULL);
 
-    int retj1 = worker_join(ret2, NULL);
-
-
-    printf("AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n");
-    printf("AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n");
-    printf("AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n");
-    printf("AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n");
-    printf("AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n");
+    // int retj1 = worker_join(ret2, NULL);
+    // int retj2 = worker_join(ret4, NULL);
 
 
 
     // ---------------------------------------------------------------------------------
-    // MUTEX TESTING
+    //MUTEX TESTING
     
-    // worker_mutex_init(&mutex, NULL);
-    // worker_t wid1;
-    // worker_t ret1 = worker_create(&wid1, NULL, &resource, 1);
+    worker_mutex_init(&mutex, NULL);
+    worker_t wid1;
+    worker_t ret1 = worker_create(&wid1, NULL, &resource, 1);
 
-    // worker_t wid2;
-    // worker_t ret2 = worker_create(&wid2, NULL, &resource, 2);
+    worker_t wid2;
+    worker_t ret2 = worker_create(&wid2, NULL, &resource, 2);
 
-    // worker_t wid3;
-    // worker_t ret3 = worker_create(&wid3, NULL, &resource, 3);
-    // worker_mutex_destroy(&mutex);
+    worker_t wid3;
+    worker_t ret3 = worker_create(&wid3, NULL, &resource, 3);
+    worker_mutex_destroy(&mutex);
 
+
+
+
+    printf("AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n");
+    printf("AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n");
+    printf("AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n");
+    printf("AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n");
+    printf("AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n");
 
     // while (1) {
     //     sleep(2);

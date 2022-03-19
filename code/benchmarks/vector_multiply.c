@@ -4,7 +4,7 @@
 #include "../worker.h"
 
 #define DEFAULT_THREAD_NUM 2
-#define VECTOR_SIZE 3000
+#define VECTOR_SIZE 3000000
 
 /* Global variables */
 pthread_mutex_t   mutex;
@@ -21,12 +21,11 @@ void vector_multiply(void* arg) {
 	int n = *((int*) arg);
 	
 	for (i = n; i < VECTOR_SIZE; i += thread_num) {
-		//pthread_mutex_lock(&mutex);
+		pthread_mutex_lock(&mutex);
 		res += r[i] * s[i];
-		//pthread_mutex_unlock(&mutex);	
+		pthread_mutex_unlock(&mutex);	
 	}
 
-	printf("Done with multiply\n");
 	pthread_exit(NULL);
 }
 
@@ -76,15 +75,15 @@ int main(int argc, char **argv) {
 	for (i = 0; i < thread_num; ++i)
 		pthread_create(&thread[i], NULL, &vector_multiply, &counter[i]);
 
-	//for (i = 0; i < thread_num; ++i)
-	pthread_join(thread[0], NULL);
+	for (i = 0; i < thread_num; ++i)
+		pthread_join(thread[i], NULL);
 
 	clock_gettime(CLOCK_REALTIME, &end);
         printf("running time: %lu micro-seconds\n", 
 	       (end.tv_sec - start.tv_sec) * 1000 + (end.tv_nsec - start.tv_nsec) / 1000000);
 	printf("res is: %d\n", res);
 
-	//pthread_mutex_destroy(&mutex);
+	pthread_mutex_destroy(&mutex);
 	verify();
 
 	// Free memory on Heap
